@@ -1,0 +1,45 @@
+# Python
+venv*/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints & outputs (often large)
+models/checkpoints/
+quantization/quantized_weights/
+evaluation/results/
+evaluation/test_output/
+
+# Dataset is too large for GitHub (132 MB).
+# Download from: https://github.com/tangsanli5201/DeepPCB
+# and place in datasets/PCBData/
+datasets/
+
+# Verilog simulation outputs
+*.vcd
+*.vvp
+verilog/testbenches/*.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# LaTeX build artifacts
+report/latex/*.aux
+report/latex/*.log
+report/latex/*.out
+report/latex/*.pdf
+report/latex/*.toc
+report/latex/*.bbl
+report/latex/*.blg

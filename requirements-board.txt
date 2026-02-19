@@ -1,0 +1,13 @@
+# Board Requirements (for ZCU104 with PYNQ image only)
+# Install on board with: pip install -r requirements-board.txt
+
+# PYNQ for ZCU104
+pynq>=3.0.0
+
+# Basic dependencies (may already be on PYNQ image)
+numpy>=1.24.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Utilities
+tqdm>=4.65.0

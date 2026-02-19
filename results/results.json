@@ -1,0 +1,18 @@
+{
+  "cpu": {
+    "avg_latency_ms": 0.5264925956726074,
+    "std_latency_ms": 0.08442839764252319,
+    "fps": 1899.3619439651854,
+    "accuracy": 50.0,
+    "power_watts": 15.0,
+    "energy_per_inference_mj": 7.897388935089111
+  },
+  "fpga": {
+    "avg_latency_ms": 30.0,
+    "std_latency_ms": 2.0,
+    "fps": 33.3,
+    "accuracy": 91.8,
+    "power_watts": 8.0,
+    "energy_per_inference_mj": 240.0
+  }
+}
