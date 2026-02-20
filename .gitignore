@@ -26,6 +26,8 @@ datasets/
 *.vcd
 *.vvp
 verilog/testbenches/*.out
+verilog/testbenches/conv_sim
+verilog/testbenches/relu_sim
 
 # OS
 .DS_Store
