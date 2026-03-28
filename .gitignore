@@ -12,7 +12,6 @@ build/
 .ipynb_checkpoints/
 
 # Model checkpoints & outputs (often large)
-models/checkpoints/
 quantization/quantized_weights/
 evaluation/results/
 evaluation/test_output/
