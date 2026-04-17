@@ -20,14 +20,14 @@ ADAS Object Detection on Xilinx ZCU104}
 School of Electrical and Electronic Engineering\\
 Nanyang Technological University\\
 Singapore\\
-arjun001@e.ntu.edu.sg}
+arjunprakash2006@gmail.com}
 \and
 \IEEEauthorblockN{Loo Xi Sung}
 \IEEEauthorblockA{
 School of Electrical and Electronic Engineering\\
 Nanyang Technological University\\
 Singapore\\
-xslung@ntu.edu.sg}
+xisung.loo@ntu.edu.sg}
 }
 
 \maketitle
@@ -314,15 +314,15 @@ FP32 & Best (max mAP)     & 0.10 & 0.385 \\
 INT8 & Best (simulated)   & 0.10 & 0.390 \\
 \midrule
 \multicolumn{4}{l}{\textit{Per-class AP at $t$\,=\,0.10 (FP32 / INT8):}} \\
-\quad Person  & & & 0.606 / 0.608 \\
+\quad Person  & & & 0.604 / 0.608 \\
 \quad Car     & & & 0.471 / 0.489 \\
-\quad Bus     & & & 0.346 / 0.347 \\
+\quad Bus     & & & 0.345 / 0.347 \\
 \quad Truck   & & & 0.117 / 0.117 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The 63.4\% relative mAP increase from $t$\,=\,0.50 to $t$\,=\,0.10 reflects that the default confidence threshold is poorly calibrated for ADAS class recall on this dataset. Person and car, the highest-frequency ADAS objects, achieve AP of 0.606 and 0.471 respectively at the optimal threshold. Post-training INT8 quantization of all 35 Conv2d layers produces a simulated INT8 mAP of 0.390, representing a $+$0.5 percentage-point improvement over FP32 (within measurement noise), confirming that SSD300-VGG16 is highly robust to weight quantization.
+The 63.4\% relative mAP increase from $t$\,=\,0.50 to $t$\,=\,0.10 reflects that the default confidence threshold is poorly calibrated for ADAS class recall on this dataset. Person and car, the highest-frequency ADAS objects, achieve AP of 0.604 and 0.471 respectively at the optimal threshold. Post-training INT8 quantization of all 35 Conv2d layers produces a simulated INT8 mAP of 0.390, representing a $+$0.5 percentage-point improvement over FP32 (within measurement noise), confirming that SSD300-VGG16 is highly robust to weight quantization.
 
 \subsubsection{Precision-Recall Curves}
 
