@@ -144,7 +144,7 @@ Activation ranges are calibrated using 50 batches of training data collected via
 
 \subsubsection{Threshold Tuning}
 
-The default classification threshold of 0.5 yields 77.4\% defect recall. Because a false negative (escaped defect) is more costly than a false alarm in AOI, we swept the threshold from 0.05 to 0.95 and identified two operating points of practical interest: threshold~=~0.20 maximises the F1 score (0.853, recall~=~87.1\%), while threshold~=~0.10 achieves 90.4\% recall at 79.6\% precision. Figure~\ref{fig:threshold} characterises the full precision-recall-F1 trade-off.
+The default classification threshold of 0.5 yields 77.4\% defect recall. Because a false negative (escaped defect) is more costly than a false alarm in AOI, we swept the threshold from 0.05 to 0.95 and identified two operating points of practical interest: threshold~=~0.20 maximises the F1 score (0.853, recall~=~87.1\%), while threshold~=~0.05 achieves 93.0\% recall at 75.3\% precision. Figure~\ref{fig:threshold} characterises the full precision-recall-F1 trade-off.
 
 \subsection{Task~2 --- ADAS Object Detection}
 
@@ -251,7 +251,7 @@ Drop                        & \phantom{0}$-$0.36 & --- \\
 \end{tabular}
 \end{table}
 
-Figure~\ref{fig:cm} shows the confusion matrix for the FP32 model on the 1{,}400-image validation set.  The model correctly classifies 88.9\% of normal boards and 81.7\% of defective boards, with the dominant error being false normals (missed defects), which motivates threshold tuning.
+Figure~\ref{fig:cm} shows the confusion matrix for the FP32 model on the 1{,}400-image validation set.  The model correctly classifies 93.1\% of normal boards and 77.4\% of defective boards, with the dominant error being false normals (missed defects), which motivates threshold tuning.
 
 \begin{figure}[htbp]
 \centering
@@ -269,7 +269,7 @@ Figure~\ref{fig:cm} shows the confusion matrix for the FP32 model on the 1{,}400
 \label{fig:threshold}
 \end{figure}
 
-As shown in Figure~\ref{fig:threshold}, reducing the threshold from 0.50 to 0.20 improves defect recall from 77.4\% to 87.1\% while F1 increases to 0.853. At threshold~0.10, recall reaches 90.4\% with F1~=~0.847. Operators can choose any operating point without retraining.
+As shown in Figure~\ref{fig:threshold}, reducing the threshold from 0.50 to 0.20 improves defect recall from 77.4\% to 87.1\% while F1 increases to 0.853. At threshold~0.05, recall reaches 93.0\% with precision 75.3\%. Operators can choose any operating point without retraining.
 
 \subsubsection{Latency}
 
@@ -366,7 +366,7 @@ The 0.36\% accuracy drop from FP32 to INT8 on the PCB task confirms that ResNet1
 
 \subsection{Threshold Strategy for AOI Deployment}
 
-In automated optical inspection, the asymmetric cost of false negatives vs. false positives makes a fixed threshold of 0.5 suboptimal. Our sweep demonstrates that threshold~0.10 recovers 90.4\% of defective boards---a meaningful improvement over the 77.4\% achieved at 0.5---without any model change. This represents a practical engineering lever for production deployment.
+In automated optical inspection, the asymmetric cost of false negatives vs. false positives makes a fixed threshold of 0.5 suboptimal. Our sweep demonstrates that threshold~0.05 recovers 93.0\% of defective boards---a meaningful improvement over the 77.4\% achieved at 0.5---without any model change. This represents a practical engineering lever for production deployment.
 
 \subsection{ADAS Baseline Calibration and INT8 Robustness}
 
