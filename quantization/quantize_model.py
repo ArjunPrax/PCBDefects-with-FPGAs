@@ -157,8 +157,8 @@ def quantize_model(model, dataloader, device, num_batches=100):
             
             # Get activation range
             if name in activations:
-                act_tensor = torch.cat(activations[name], dim=0)
-                act_q, act_scale, act_zp = quantize_tensor(act_tensor.cpu().numpy())
+                act_array = np.concatenate(activations[name], axis=0)
+                act_q, act_scale, act_zp = quantize_tensor(act_array)
             else:
                 act_scale, act_zp = 1.0, 0.0
             
@@ -347,13 +347,16 @@ def main(args):
     
     # Simulate INT8 quantized inference
     print("\nSimulating INT8 quantized inference...")
-    # Create a copy with quantized weights loaded
+    # Create a copy with the full checkpoint loaded first, then replace only
+    # Conv2d weights with their dequantized versions.  All other layers
+    # (BatchNorm, FC) must start from the trained checkpoint — not random init.
     quant_model = create_model(
         model_type=args.model_type,
         num_classes=num_classes,
         input_size=input_size
     )
-    
+    quant_model.load_state_dict(checkpoint['state_dict'])
+
     # Load quantized and immediately dequantized weights (simulates FPGA behavior)
     with torch.no_grad():
         for name, module in quant_model.named_modules():

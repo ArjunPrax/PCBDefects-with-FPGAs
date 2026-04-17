@@ -85,7 +85,7 @@ module axi_conv_wrapper #(
     wire soft_reset = ctrl_reg[1];
     
     // Conv engine signals
-    wire [DATA_WIDTH-1:0] conv_out_data;
+    wire signed [ACC_WIDTH-1:0] conv_out_data;
     wire conv_out_valid;
     wire conv_done;
     reg conv_out_ready;
@@ -94,9 +94,8 @@ module axi_conv_wrapper #(
     wire [DATA_WIDTH-1:0] relu_out_data;
     wire relu_out_valid;
     
-    // Weight BRAM signals
-    wire [9:0] weight_addr;
-    reg [DATA_WIDTH-1:0] weight_data;
+    // Weight flat bus for conv3x3_engine (9 weights packed, LSB = weight[0])
+    wire [DATA_WIDTH*9-1:0] weight_flat;
     
     //======================================
     // Conv3x3 Engine Instantiation
@@ -115,8 +114,7 @@ module axi_conv_wrapper #(
         .in_data(S_AXIS_TDATA),
         .in_valid(S_AXIS_TVALID),
         .in_ready(S_AXIS_TREADY),
-        .weight_addr(weight_addr),
-        .weight_data(weight_data),
+        .weight_flat(weight_flat),
         .out_data(conv_out_data),
         .out_valid(conv_out_valid),
         .out_ready(conv_out_ready),
@@ -132,7 +130,7 @@ module axi_conv_wrapper #(
         .clk(clk),
         .rst_n(rst_n & ~soft_reset),
         .enable(1'b1),
-        .in_data(conv_out_data),
+        .in_data(conv_out_data[DATA_WIDTH-1:0]),
         .in_valid(conv_out_valid),
         .out_data(relu_out_data),
         .out_valid(relu_out_valid)
@@ -151,10 +149,11 @@ module axi_conv_wrapper #(
     //======================================
     reg [DATA_WIDTH-1:0] weight_mem [0:1023];
     
-    always @(posedge clk) begin
-        weight_data <= weight_mem[weight_addr % 1024];
-    end
-    
+    // Pack weight_mem[0..8] into flat bus so w[i] = weight_flat[DATA_WIDTH*i +: DATA_WIDTH]
+    assign weight_flat = {weight_mem[8], weight_mem[7], weight_mem[6],
+                          weight_mem[5], weight_mem[4], weight_mem[3],
+                          weight_mem[2], weight_mem[1], weight_mem[0]};
+
     //======================================
     // AXI4-Lite Write Logic
     //======================================

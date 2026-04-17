@@ -1,0 +1,237 @@
+{
+  "default_threshold": 0.5,
+  "default_metrics": {
+    "threshold": 0.5,
+    "defect_precision": 0.9186,
+    "defect_recall": 0.7743,
+    "f1": 0.8403,
+    "accuracy": 0.8529,
+    "tp": 542,
+    "fp": 48,
+    "fn": 158,
+    "tn": 652
+  },
+  "recall_target": 0.9,
+  "best_for_recall_target": {
+    "threshold": 0.1,
+    "defect_precision": 0.7962,
+    "defect_recall": 0.9043,
+    "f1": 0.8468,
+    "accuracy": 0.8364,
+    "tp": 633,
+    "fp": 162,
+    "fn": 67,
+    "tn": 538
+  },
+  "sweep": [
+    {
+      "threshold": 0.05,
+      "defect_precision": 0.7535,
+      "defect_recall": 0.93,
+      "f1": 0.8325,
+      "accuracy": 0.8129,
+      "tp": 651,
+      "fp": 213,
+      "fn": 49,
+      "tn": 487
+    },
+    {
+      "threshold": 0.1,
+      "defect_precision": 0.7962,
+      "defect_recall": 0.9043,
+      "f1": 0.8468,
+      "accuracy": 0.8364,
+      "tp": 633,
+      "fp": 162,
+      "fn": 67,
+      "tn": 538
+    },
+    {
+      "threshold": 0.15,
+      "defect_precision": 0.821,
+      "defect_recall": 0.8843,
+      "f1": 0.8514,
+      "accuracy": 0.8457,
+      "tp": 619,
+      "fp": 135,
+      "fn": 81,
+      "tn": 565
+    },
+    {
+      "threshold": 0.2,
+      "defect_precision": 0.8345,
+      "defect_recall": 0.8714,
+      "f1": 0.8526,
+      "accuracy": 0.8493,
+      "tp": 610,
+      "fp": 121,
+      "fn": 90,
+      "tn": 579
+    },
+    {
+      "threshold": 0.25,
+      "defect_precision": 0.8423,
+      "defect_recall": 0.8543,
+      "f1": 0.8482,
+      "accuracy": 0.8471,
+      "tp": 598,
+      "fp": 112,
+      "fn": 102,
+      "tn": 588
+    },
+    {
+      "threshold": 0.3,
+      "defect_precision": 0.8536,
+      "defect_recall": 0.8414,
+      "f1": 0.8475,
+      "accuracy": 0.8486,
+      "tp": 589,
+      "fp": 101,
+      "fn": 111,
+      "tn": 599
+    },
+    {
+      "threshold": 0.35,
+      "defect_precision": 0.8659,
+      "defect_recall": 0.83,
+      "f1": 0.8476,
+      "accuracy": 0.8507,
+      "tp": 581,
+      "fp": 90,
+      "fn": 119,
+      "tn": 610
+    },
+    {
+      "threshold": 0.4,
+      "defect_precision": 0.8739,
+      "defect_recall": 0.8214,
+      "f1": 0.8468,
+      "accuracy": 0.8514,
+      "tp": 575,
+      "fp": 83,
+      "fn": 125,
+      "tn": 617
+    },
+    {
+      "threshold": 0.45,
+      "defect_precision": 0.9075,
+      "defect_recall": 0.7986,
+      "f1": 0.8495,
+      "accuracy": 0.8586,
+      "tp": 559,
+      "fp": 57,
+      "fn": 141,
+      "tn": 643
+    },
+    {
+      "threshold": 0.5,
+      "defect_precision": 0.9186,
+      "defect_recall": 0.7743,
+      "f1": 0.8403,
+      "accuracy": 0.8529,
+      "tp": 542,
+      "fp": 48,
+      "fn": 158,
+      "tn": 652
+    },
+    {
+      "threshold": 0.55,
+      "defect_precision": 0.9257,
+      "defect_recall": 0.7471,
+      "f1": 0.8269,
+      "accuracy": 0.8436,
+      "tp": 523,
+      "fp": 42,
+      "fn": 177,
+      "tn": 658
+    },
+    {
+      "threshold": 0.6,
+      "defect_precision": 0.9293,
+      "defect_recall": 0.7329,
+      "f1": 0.8195,
+      "accuracy": 0.8386,
+      "tp": 513,
+      "fp": 39,
+      "fn": 187,
+      "tn": 661
+    },
+    {
+      "threshold": 0.65,
+      "defect_precision": 0.9437,
+      "defect_recall": 0.7186,
+      "f1": 0.8159,
+      "accuracy": 0.8379,
+      "tp": 503,
+      "fp": 30,
+      "fn": 197,
+      "tn": 670
+    },
+    {
+      "threshold": 0.7,
+      "defect_precision": 0.9502,
+      "defect_recall": 0.7086,
+      "f1": 0.8118,
+      "accuracy": 0.8357,
+      "tp": 496,
+      "fp": 26,
+      "fn": 204,
+      "tn": 674
+    },
+    {
+      "threshold": 0.75,
+      "defect_precision": 0.9527,
+      "defect_recall": 0.69,
+      "f1": 0.8003,
+      "accuracy": 0.8279,
+      "tp": 483,
+      "fp": 24,
+      "fn": 217,
+      "tn": 676
+    },
+    {
+      "threshold": 0.8,
+      "defect_precision": 0.9511,
+      "defect_recall": 0.6671,
+      "f1": 0.7842,
+      "accuracy": 0.8164,
+      "tp": 467,
+      "fp": 24,
+      "fn": 233,
+      "tn": 676
+    },
+    {
+      "threshold": 0.85,
+      "defect_precision": 0.9678,
+      "defect_recall": 0.6443,
+      "f1": 0.7736,
+      "accuracy": 0.8114,
+      "tp": 451,
+      "fp": 15,
+      "fn": 249,
+      "tn": 685
+    },
+    {
+      "threshold": 0.9,
+      "defect_precision": 0.9696,
+      "defect_recall": 0.6371,
+      "f1": 0.769,
+      "accuracy": 0.8086,
+      "tp": 446,
+      "fp": 14,
+      "fn": 254,
+      "tn": 686
+    },
+    {
+      "threshold": 0.95,
+      "defect_precision": 0.9858,
+      "defect_recall": 0.5971,
+      "f1": 0.7438,
+      "accuracy": 0.7943,
+      "tp": 418,
+      "fp": 6,
+      "fn": 282,
+      "tn": 694
+    }
+  ]
+}

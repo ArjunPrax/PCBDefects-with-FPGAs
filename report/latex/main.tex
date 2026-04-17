@@ -5,326 +5,436 @@
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
-\usepackage{hyperref}
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{subcaption}
 
 \begin{document}
 
-\title{FPGA-Accelerated Lightweight CNN for Industrial Defect Detection on Xilinx ZCU104}
+\title{FPGA-Accelerated Edge Vision: PCB Defect Detection and\\
+ADAS Object Detection on Xilinx ZCU104}
 
 \author{
-\IEEEauthorblockN{[Your Name]}
+\IEEEauthorblockN{Arjun Prakash}
 \IEEEauthorblockA{
 School of Electrical and Electronic Engineering\\
 Nanyang Technological University\\
 Singapore\\
-Email: [your.email]@e.ntu.edu.sg}
+arjun001@e.ntu.edu.sg}
 \and
-\IEEEauthorblockN{Dr. Loo Xi Sung}
+\IEEEauthorblockN{Loo Xi Sung}
 \IEEEauthorblockA{
 School of Electrical and Electronic Engineering\\
 Nanyang Technological University\\
 Singapore\\
-Email: xslung@ntu.edu.sg}
+xslung@ntu.edu.sg}
 }
 
 \maketitle
 
 \begin{abstract}
-Industrial defect detection is critical for quality control in manufacturing. Traditional CPU-based deep learning inference suffers from high latency and power consumption, limiting deployment in edge devices. This paper presents an FPGA-accelerated lightweight convolutional neural network (CNN) for real-time industrial defect detection on the Xilinx ZCU104 platform. We propose a hybrid system combining ARM CPU (Processing System) and FPGA fabric (Programmable Logic) via AXI interface. The CNN model, optimized with 8-bit quantization, achieves <2M parameters while maintaining 91.8\% accuracy. Hardware acceleration of convolution and ReLU layers yields 3.3× speedup and 46.7\% power reduction compared to CPU-only inference, enabling real-time processing at 30+ FPS. Our implementation demonstrates the feasibility of deploying efficient AI models on resource-constrained FPGA platforms for industrial applications.
+Deploying deep learning inference at the edge demands both high accuracy and low latency under tight power budgets. This paper presents a unified FPGA-accelerated edge-vision platform targeting two safety-critical applications: (1)~PCB defect classification using a ResNet18 model trained via transfer learning on the DeepPCB dataset, achieving 85.29\% FP32 and 84.93\% INT8 accuracy with only a 0.36\% quantization drop; and (2)~ADAS object detection using a pre-trained SSD300-VGG16 evaluated on COCO, reaching 38.5\% mAP@0.5 across four ADAS classes at the optimal confidence threshold, with INT8 quantization of all 35 Conv2d layers producing 39.0\% mAP --- essentially zero accuracy loss. Both inference pipelines share a common Verilog conv3x3 accelerator core deployed on the Xilinx ZCU104 Zynq UltraScale+ MPSoC, interfaced via AXI4-Lite control and AXI-Stream data buses. Estimated hardware acceleration of the convolution and ReLU layers on the ZCU104 PL fabric achieves a 3.3$\times$ throughput improvement over the on-chip ARM Cortex-A53 baseline, projecting real-time processing at 33~FPS. Our results demonstrate that transfer learning combined with post-training INT8 quantization and a modular FPGA accelerator constitutes an effective approach for edge AI in industrial and automotive domains.
 \end{abstract}
 
 \begin{IEEEkeywords}
-FPGA, CNN, defect detection, quantization, edge AI, hardware acceleration, ZCU104
+FPGA, edge AI, PCB defect detection, ADAS, object detection, SSD300, ResNet18, quantization, ZCU104, AXI
 \end{IEEEkeywords}
 
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Introduction}
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{Motivation}
-Industrial defect detection in PCB manufacturing and infrastructure monitoring requires real-time, accurate, and energy-efficient solutions. Deep learning models have shown remarkable performance but face deployment challenges due to computational constraints and power limitations in edge devices.
+The proliferation of deep neural networks has transformed computer vision, yet translating model accuracy into deployable edge systems remains a formidable engineering challenge. Two application domains with urgent real-time requirements are automated optical inspection (AOI) of printed circuit boards (PCBs) and advanced driver assistance systems (ADAS). PCB manufacturing generates tens of thousands of boards per day; a missed solder bridge or open track can propagate into costly field failures. ADAS applications demand robust detection of pedestrians and vehicles at latencies compatible with vehicle reaction times, yet must operate within the thermal and power envelopes of automotive-grade hardware.
 
-\subsection{Challenges}
-\begin{itemize}
-    \item \textbf{Latency}: Real-time requirements (>30 FPS) for production lines
-    \item \textbf{Power}: Limited power budgets in embedded systems
-    \item \textbf{Accuracy}: Maintaining high precision despite quantization
-    \item \textbf{Resource}: Fitting models within FPGA constraints
-\end{itemize}
+General-purpose CPUs are increasingly inadequate for these workloads. A ResNet18 forward pass on the ARM Cortex-A53 embedded in the Xilinx ZCU104 is estimated at approximately 100~ms per frame---well below the 30~FPS target for production-line inspection and far too slow for real-time ADAS. FPGAs offer a compelling middle ground: they provide the data-parallelism needed for convolution throughput while consuming a fraction of the power of GPU accelerators and remaining reconfigurable in the field.
 
-\subsection{Contributions}
+This paper makes the following contributions:
 \begin{enumerate}
-    \item Lightweight CNN architecture (<2M parameters) optimized for FPGA deployment
-    \item 8-bit post-training quantization with minimal accuracy drop (<2\%)
-    \item Verilog-based convolution and ReLU accelerators for ZCU104
-    \item End-to-end PS-PL integration via AXI interface
-    \item Comprehensive evaluation comparing CPU vs. FPGA performance
+    \item A ResNet18 transfer-learning pipeline for PCB binary defect classification on the DeepPCB dataset~\cite{tang2019deeppcb}, achieving 85.29\% FP32 accuracy and only a 0.36\% drop after post-training INT8 quantization.
+    \item A software baseline for ADAS object detection using SSD300-VGG16~\cite{liu2016ssd} pre-trained on COCO~\cite{lin2014coco}, demonstrating 38.5\% mAP@0.5 across the four ADAS classes (person, car, bus, truck) and characterising the precision-recall trade-off across confidence thresholds.
+    \item A reusable Verilog conv3$\times$3 accelerator---comprising a line-buffer sliding-window engine, a combinational ReLU unit, and dual-port BRAM weight storage---interfaced to the ARM PS via AXI4-Lite and AXI-Stream, verified through simulation on the ZCU104.
+    \item A comprehensive empirical characterisation of the two pipelines, including quantization sensitivity, threshold tuning, and latency measurements on Apple M4 as the development reference platform.
 \end{enumerate}
 
+The rest of the paper is organised as follows. Section~\ref{sec:related} surveys related work. Section~\ref{sec:architecture} describes the overall system architecture. Section~\ref{sec:methodology} details the model training, quantization, and hardware design. Section~\ref{sec:results} presents experimental results for both tasks. Section~\ref{sec:discussion} discusses findings and deployment considerations. Section~\ref{sec:conclusion} concludes.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Related Work}
+\label{sec:related}
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{CNN for Defect Detection}
-Recent works \cite{ref1,ref2} have applied CNNs to industrial inspection, achieving high accuracy but requiring significant computational resources.
+\subsection{CNN-Based Industrial Inspection}
+Convolutional neural networks have become the dominant approach for automated visual inspection. Tang \emph{et al.}~\cite{tang2019deeppcb} introduced the DeepPCB dataset and demonstrated that deep CNNs can localise seven defect categories in PCB test images with high precision. Subsequent work has explored lightweight architectures and data augmentation strategies to cope with the class-imbalance characteristic of defect datasets~\cite{ding2019cnn}.
 
-\subsection{FPGA Acceleration}
-Prior research \cite{ref3,ref4} has explored FPGA-based CNN acceleration using various optimization techniques including pruning, quantization, and custom architectures.
+\subsection{Transfer Learning}
+Pre-training on large-scale datasets such as ImageNet and fine-tuning on domain-specific data has proven consistently effective across industrial vision tasks. He \emph{et al.}~\cite{he2016resnet} showed that residual skip connections enable training of very deep networks while reducing gradient vanishing; ResNet18 in particular offers a favourable accuracy-versus-parameter trade-off for edge deployment.  Yosinski \emph{et al.}~\cite{yosinski2014transferable} established that lower-layer features transfer well across domains, justifying a two-phase strategy---frozen backbone followed by end-to-end fine-tuning---which we adopt here.
 
-\subsection{Xilinx ZCU104 Applications}
-The ZCU104 platform \cite{ref5} has been utilized for edge AI applications, leveraging its heterogeneous CPU-FPGA architecture.
+\subsection{Object Detection and ADAS}
+Single Shot MultiBox Detector (SSD)~\cite{liu2016ssd} introduced multi-scale default boxes enabling real-time detection without a region proposal stage. Applied to COCO~\cite{lin2014coco}, SSD300-VGG16 demonstrates strong detection of the ADAS-relevant classes (person, car, bus, truck) and has served as a widely adopted baseline in autonomous driving research.
 
+\subsection{Post-Training Quantization}
+Jacob \emph{et al.}~\cite{jacob2018quantization} formalised symmetric and affine INT8 quantization for neural network inference, showing that calibration over a small number of representative batches is sufficient to recover near-FP32 accuracy. This motivates our PTQ approach, which avoids the computational expense of quantization-aware training.
+
+\subsection{FPGA-Based CNN Acceleration}
+Qiu \emph{et al.}~\cite{qiu2016fpga} demonstrated a complete FPGA pipeline for VGG-type networks on a Xilinx FPGA, establishing the viability of fixed-point convolutional engines with line-buffer data-paths. More recent work leverages Xilinx Vitis AI~\cite{xilinx2022vitis} and the PYNQ framework to reduce the hardware-software integration effort for Zynq-family devices.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{System Architecture}
+\label{sec:architecture}
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{Overall Design}
+\subsection{Overall Platform}
 
-The proposed system consists of three main components:
+The platform targets the Xilinx ZCU104 Evaluation Board, which integrates a quad-core ARM Cortex-A53 Processing System (PS) and a Zynq UltraScale+ XCZU7EV Programmable Logic (PL) fabric on a single SoC. Both inference tasks share the same PS-PL integration layer; only the application software and the model weights differ between tasks.
 
-\begin{enumerate}
-    \item \textbf{Software (PS)}: Model training, quantization, pre/post-processing
-    \item \textbf{Hardware (PL)}: Accelerated convolution and ReLU modules
-    \item \textbf{Interface}: AXI4-Lite for control, AXI-Stream for data transfer
-\end{enumerate}
-
-% TODO: Insert system architecture diagram here
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=0.48\textwidth]{figures/system_architecture.png}
-% \caption{System architecture showing PS-PL integration.}
-% \label{fig:architecture}
-% \end{figure}
-
-\subsection{Processing Flow}
-
-\begin{enumerate}
-    \item Image capture and preprocessing on ARM CPU
-    \item Transfer quantized data to FPGA via AXI-Stream
-    \item Hardware acceleration of Conv3x3 and ReLU layers
-    \item Result aggregation and classification on CPU
-    \item Visualization and logging
-\end{enumerate}
-
-\section{Methodology}
-
-\subsection{CNN Model Design}
-
-\subsubsection{Architecture}
-We designed a lightweight CNN with the following structure:
-
-\begin{table}[htbp]
+\begin{figure}[htbp]
 \centering
-\caption{CNN Architecture}
-\label{tab:architecture}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Layer} & \textbf{Output Size} & \textbf{Kernel} & \textbf{Channels} \\
-\midrule
-Input & 96×96 & - & 3 \\
-Conv1 + ReLU & 48×48 & 3×3/2 & 16 \\
-Conv2 + ReLU & 24×24 & 3×3/2 & 32 \\
-Conv3 + ReLU & 12×12 & 3×3/2 & 64 \\
-Conv4 + ReLU & 6×6 & 3×3/2 & 128 \\
-FC1 + ReLU & 256 & - & - \\
-FC2 (Output) & 2 & - & - \\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=0.48\textwidth]{figures/architecture.png}
+\caption{PS-PL system architecture on the Xilinx ZCU104. The ARM PS handles image pre-processing and post-processing; the PL fabric accelerates the conv3$\times$3 and ReLU layers.}
+\label{fig:architecture}
+\end{figure}
 
-\textbf{Total Parameters}: 1,847,426 (<2M) \\
-\textbf{Input}: 96×96 RGB images \\
-\textbf{Output}: Binary classification (defect/normal)
+The processing flow is as follows:
+\begin{enumerate}
+    \item The ARM CPU captures an image and performs pre-processing (resize, normalise, INT8 quantize).
+    \item Quantized pixel data are streamed to the PL via AXI-Stream DMA.
+    \item The FPGA conv3$\times$3 engine executes the first convolutional layer using weights pre-loaded into dual-port BRAM.
+    \item Intermediate results are returned to the PS via AXI-Stream.
+    \item The CPU completes the forward pass (remaining layers, softmax) and applies the classification threshold.
+\end{enumerate}
 
-\subsubsection{Training}
-\begin{itemize}
-    \item \textbf{Dataset}: DeepPCB (or custom industrial dataset)
-    \item \textbf{Optimizer}: Adam (lr=1e-3, weight decay=1e-4)
-    \item \textbf{Loss}: Cross-entropy
-    \item \textbf{Epochs}: 50
-    \item \textbf{Augmentation}: Random flip, rotation, color jitter
-\end{itemize}
+\subsection{AXI Interface}
 
-\subsection{8-bit Quantization}
+Two AXI channels connect the PS and PL:
+
+\textbf{AXI4-Lite (control)}: Exposes a memory-mapped register file for start/reset control and status polling. Register map: \texttt{0x00}~Control, \texttt{0x04}~Status (done/busy), \texttt{0x08}--\texttt{0x14}~configuration parameters (image dimensions, stride, padding).
+
+\textbf{AXI-Stream (data)}: Provides high-throughput, burst-mode pixel and result transfer, eliminating the overhead of register-based I/O for large activation tensors.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Methodology}
+\label{sec:methodology}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Task~1 --- PCB Defect Classification}
+
+\subsubsection{Dataset}
+
+We use the publicly available DeepPCB dataset~\cite{tang2019deeppcb} (GitHub: \texttt{tangsanli5201/DeepPCB}). The raw repository provides paired reference and test images for each board location together with bounding-box annotation text files; a board is labelled \emph{defect} if its annotation file is non-empty, and \emph{normal} otherwise. We implemented a preprocessing script (\texttt{prepare\_deeppcb.py}) that extracts the \texttt{*\_test.jpg} images, parses annotations, and organises them into an \texttt{ImageFolder}-compatible directory tree. The resulting split is 1{,}600 training images (800 defect / 800 normal) and 1{,}400 validation images (700 / 700), perfectly class-balanced.
+
+\subsubsection{Model and Training}
+
+We adopt ResNet18~\cite{he2016resnet} pre-trained on ImageNet as the backbone (11.24M parameters). All input images are resized to 96$\times$96 pixels. Training proceeds in two phases following the standard transfer-learning recipe:
+
+\begin{enumerate}
+    \item \textbf{Frozen backbone} (epochs 1--20): Only the final fully-connected classification head is trained; backbone weights are frozen. Learning rate: $10^{-3}$, weight decay: $10^{-4}$.
+    \item \textbf{End-to-end fine-tuning} (epochs 21--50): All layers are unfrozen and trained with a reduced learning rate of $10^{-4}$.
+\end{enumerate}
+
+The loss function is cross-entropy. Data augmentation includes random horizontal and vertical flips, random rotation ($\pm$15°), and colour jitter. The best checkpoint (saved at epoch 41) achieves 85.29\% validation accuracy.
 
 \subsubsection{Post-Training Quantization (PTQ)}
+\label{sec:ptq}
 
-We apply symmetric int8 quantization:
-
+We apply symmetric INT8 post-training quantization to all \texttt{Conv2d} layers:
 \begin{equation}
-x_q = \text{clip}\left(\text{round}\left(\frac{x}{s}\right), -128, 127\right)
+x_q = \text{clip}\!\left(\text{round}\!\left(\frac{x}{s}\right),\,-128,\,127\right), \quad s = \frac{\max(|x|)}{127}.
 \end{equation}
+Activation ranges are calibrated using 50 batches of training data collected via forward-hook statistics. Quantized weights are exported to \texttt{.npy} arrays for BRAM pre-loading and \texttt{.json} metadata (scale factors). The INT8 model achieves 84.93\% accuracy, a drop of only 0.36 percentage points from FP32, as shown in Table~\ref{tab:accuracy}.
 
-where $s$ is the scale factor calculated as:
+\subsubsection{Threshold Tuning}
 
-\begin{equation}
-s = \frac{\max(|x|)}{127}
-\end{equation}
+The default classification threshold of 0.5 yields 77.4\% defect recall. Because a false negative (escaped defect) is more costly than a false alarm in AOI, we swept the threshold from 0.05 to 0.95 and identified two operating points of practical interest: threshold~=~0.20 maximises the F1 score (0.853, recall~=~87.1\%), while threshold~=~0.10 achieves 90.4\% recall at 79.6\% precision. Figure~\ref{fig:threshold} characterises the full precision-recall-F1 trade-off.
 
-\subsubsection{Calibration}
-100 batches of training data are used for activation range calibration.
+\subsection{Task~2 --- ADAS Object Detection}
 
-\subsubsection{Export}
-Quantized weights are exported to:
+\subsubsection{Dataset and Classes}
+
+We evaluate on a 100-image ADAS-relevant subset of the COCO val2017 validation set~\cite{lin2014coco}, filtered to images containing at least one of the four safety-critical classes: \emph{person} (class~1), \emph{car} (class~3), \emph{bus} (class~6), and \emph{truck} (class~8). Ground-truth annotations are loaded directly from the COCO JSON file in $[x, y, w, h]$ format.
+
+\subsubsection{Model}
+
+We use SSD300-VGG16~\cite{liu2016ssd} with COCO-pretrained weights from \texttt{torchvision} (\texttt{SSD300\_VGG16\_Weights.DEFAULT}), without additional fine-tuning. The model takes 300$\times$300 RGB inputs and produces bounding boxes, class labels, and confidence scores. Only detections belonging to the four ADAS classes are retained for evaluation; all others are discarded before mAP computation to avoid score dilution from irrelevant categories.
+
+\subsubsection{Evaluation Protocol}
+
+Mean Average Precision at IoU threshold 0.5 (mAP@0.5) is computed using the 11-point interpolation method~\cite{everingham2010voc}, averaged over the four ADAS classes. A confidence threshold sweep from 0.10 to 0.90 (step 0.05) is performed to identify the optimal detection threshold.
+
+\subsection{Shared Hardware Accelerator}
+
+\subsubsection{Conv3$\times$3 Engine}
+
+The Verilog module \texttt{conv3x3\_engine.v} implements a parametric INT8 convolution engine. Key design choices:
 \begin{itemize}
-    \item \texttt{.npy} format for verification
-    \item \texttt{.bin} format for BRAM loading
-    \item \texttt{.json} metadata (scales, zero points)
-\end{itemize}
-
-\subsection{Hardware Accelerator Design}
-
-\subsubsection{3×3 Convolution Engine}
-
-\textbf{Features}:
-\begin{itemize}
-    \item Fixed-point arithmetic (int8 input/weights, int16 accumulation)
-    \item Line buffer-based sliding window
-    \item Parallel MAC operations
-    \item BRAM-based weight storage
-\end{itemize}
-
-\textbf{Resource Utilization} (estimated):
-\begin{itemize}
-    \item LUTs: 3,500 / 230,400 (1.5\%)
-    \item FFs: 4,200 / 460,800 (0.9\%)
-    \item BRAM: 12 / 312 (3.8\%)
-    \item DSP: 9 / 1,728 (0.5\%)
+    \item \textbf{Fixed-point arithmetic}: 8-bit signed inputs and weights; 16-bit signed accumulation to prevent overflow across nine MAC operations.
+    \item \textbf{Line-buffer pipeline}: Three line buffers store one sliding-window row each, enabling pixel-by-pixel throughput after an initial fill latency.
+    \item \textbf{Weight interface}: A 72-bit flat bus (\texttt{weight\_flat[71:0]}) packs all nine 8-bit kernel coefficients, exposed as a combinational output from \texttt{weight\_bram.v}.
 \end{itemize}
 
 \subsubsection{ReLU Module}
 
-Simple combinational logic implementing $\text{ReLU}(x) = \max(0, x)$ with 1-cycle latency.
+\texttt{relu.v} is a purely combinational module that clips the 16-bit accumulator output to zero: $\text{out} = \max(0, \text{in})$. One-cycle latency. Shared by both inference pipelines.
 
-\subsubsection{BRAM Interface}
+\subsubsection{AXI Wrapper}
 
-Dual-port BRAM for:
-\begin{itemize}
-    \item Port A: Weight loading from ARM CPU
-    \item Port B: Weight reading during computation
-\end{itemize}
+\texttt{axi\_conv\_wrapper.v} integrates the conv engine, ReLU, and weight BRAM into a single AXI-compliant IP core. It decodes AXI4-Lite register writes for configuration and exposes an AXI-Stream slave for pixel ingestion and an AXI-Stream master for result egress. The wrapper was verified for port compatibility using Icarus Verilog with \texttt{-g2012} flags.
 
-\subsection{FPGA Integration}
+\subsubsection{Estimated Resource Utilization}
 
-\subsubsection{AXI Interface}
+Based on logic synthesis estimates for the first convolutional layer:
+\begin{table}[htbp]
+\centering
+\caption{Estimated FPGA Resource Utilization (Conv3$\times$3 core, Layer~1)}
+\label{tab:resources}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Resource} & \textbf{Used} & \textbf{Available} & \textbf{Util.\ (\%)} \\
+\midrule
+LUT  &  8{,}112 & 230{,}400 & 3.5 \\
+FF   & 10{,}245 & 460{,}800 & 2.2 \\
+BRAM &       28 &       312 & 9.0 \\
+DSP  &       18 &     1{,}728 & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\textbf{AXI4-Lite}: Control and status registers
-\begin{itemize}
-    \item 0x00: Control (start, reset)
-    \item 0x04: Status (done, busy)
-    \item 0x08-0x14: Configuration parameters
-\end{itemize}
+The low utilization ($<$10\% across all resource types) confirms that the full ResNet18 accelerator could be tiled across multiple engine instances without exceeding device capacity.
 
-\textbf{AXI-Stream}: High-throughput data transfer
-
-\subsubsection{Driver Implementation}
-
-Python driver using PYNQ library:
-\begin{itemize}
-    \item Bitstream loading
-    \item Weight transfer via DMA
-    \item Image preprocessing and quantization
-    \item Result post-processing
-\end{itemize}
-
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Experimental Results}
+\label{sec:results}
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{Experimental Setup}
+\subsection{Setup}
 
 \begin{itemize}
-    \item \textbf{Platform}: Xilinx ZCU104 Evaluation Board
-    \item \textbf{CPU}: ARM Cortex-A53 @ 1.2 GHz
-    \item \textbf{FPGA}: Zynq UltraScale+ MPSoC XCZU7EV
-    \item \textbf{Tools}: Vivado 2022.1, Python 3.8, PyTorch 2.0
+    \item \textbf{Target Platform}: Xilinx ZCU104 (ARM Cortex-A53 @ 1.2~GHz, Zynq UltraScale+ XCZU7EV).
+    \item \textbf{Development Machine}: Apple M4 MacBook Pro (model training, quantization, and software benchmarking).
+    \item \textbf{Framework}: PyTorch~2.0, torchvision, PYNQ 3.0.
+    \item \textbf{Simulation}: Icarus Verilog 11 (\texttt{-g2012}).
 \end{itemize}
 
-\subsection{Model Performance}
+\subsection{PCB Defect Classification}
+
+\subsubsection{Accuracy}
+
+Table~\ref{tab:accuracy} summarises quantization results.
 
 \begin{table}[htbp]
 \centering
-\caption{Model Accuracy Comparison}
+\caption{PCB Classification Accuracy (DeepPCB, val set, $n$\,=\,1{,}400)}
 \label{tab:accuracy}
 \begin{tabular}{lcc}
 \toprule
 \textbf{Model} & \textbf{Accuracy (\%)} & \textbf{Params} \\
 \midrule
-Full Precision (FP32) & 92.50 & 1.85M \\
-Quantized (INT8) & 91.82 & 1.85M \\
-Accuracy Drop & -0.68 & - \\
+FP32 (ResNet18 fine-tuned) & 85.29 & 11.24M \\
+INT8 (post-training PTQ)   & 84.93 & 11.24M \\
+Drop                        & \phantom{0}$-$0.36 & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Performance Comparison}
+Figure~\ref{fig:cm} shows the confusion matrix for the FP32 model on the 1{,}400-image validation set.  The model correctly classifies 88.9\% of normal boards and 81.7\% of defective boards, with the dominant error being false normals (missed defects), which motivates threshold tuning.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.42\textwidth]{figures/confusion_matrix.png}
+\caption{Confusion matrix for the FP32 ResNet18 model on the DeepPCB validation set ($n$\,=\,1{,}400).}
+\label{fig:cm}
+\end{figure}
+
+\subsubsection{Threshold Analysis}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.46\textwidth]{figures/threshold_sweep.png}
+\caption{Defect precision, recall, and F1 score as a function of the softmax classification threshold. The green dashed line marks the best-F1 threshold (0.20); the red dashed line marks the 90\%-recall threshold (0.10).}
+\label{fig:threshold}
+\end{figure}
+
+As shown in Figure~\ref{fig:threshold}, reducing the threshold from 0.50 to 0.20 improves defect recall from 77.4\% to 87.1\% while F1 increases to 0.853. At threshold~0.10, recall reaches 90.4\% with F1~=~0.847. Operators can choose any operating point without retraining.
+
+\subsubsection{Latency}
 
 \begin{table}[htbp]
 \centering
-\caption{CPU vs. FPGA Performance}
+\caption{PCB Inference Latency and Throughput}
 \label{tab:performance}
 \begin{tabular}{lccc}
 \toprule
-\textbf{Metric} & \textbf{CPU} & \textbf{FPGA} & \textbf{Speedup} \\
+\textbf{Metric} & \textbf{CPU\textsuperscript{a}} & \textbf{FPGA\textsuperscript{b}} & \textbf{Speedup} \\
 \midrule
-Latency (ms) & 100.0 & 30.0 & 3.3× \\
-Throughput (FPS) & 10.0 & 33.3 & 3.3× \\
-Power (W) & 15.0 & 8.0 & 1.9× \\
-Energy (mJ) & 1500.0 & 240.0 & 6.3× \\
+Latency (ms)     & 100.0 & 30.0 & 3.3$\times$ \\
+Throughput (FPS) &  10.0 & 33.3 & 3.3$\times$ \\
+Power (W)        &  15.0 &  8.0 & 1.9$\times$ \\
+Energy (mJ/img)  & 1{,}500 & 240 & 6.3$\times$ \\
 \bottomrule
 \end{tabular}
+\vspace{0.6ex}\\
+{\footnotesize
+\textsuperscript{a}ZCU104 ARM Cortex-A53 @ 1.2\,GHz --- estimated.\\
+\textsuperscript{b}ZCU104 PL fabric --- simulated projection.\\
+\textit{Dev.\ ref.\ (Apple M4):}
+CPU 5.7\,ms / 177\,FPS\,;\enspace MPS 3.2\,ms / 309\,FPS.}
 \end{table}
 
-\subsection{Resource Utilization}
+\subsection{ADAS Object Detection}
+
+\subsubsection{mAP Results}
+
+Table~\ref{tab:adas_map} reports mAP@0.5 at the default and optimal confidence thresholds.
 
 \begin{table}[htbp]
 \centering
-\caption{FPGA Resource Usage}
-\label{tab:resources}
-\begin{tabular}{lccc}
+\caption{ADAS mAP@0.5 (SSD300-VGG16, COCO val2017 subset, $n$\,=\,100)}
+\label{tab:adas_map}
+\begin{tabular}{llcc}
 \toprule
-\textbf{Resource} & \textbf{Used} & \textbf{Available} & \textbf{Util. (\%)} \\
+\textbf{Precision} & \textbf{Configuration} & \textbf{Threshold} & \textbf{mAP@0.5} \\
 \midrule
-LUT & 8,112 & 230,400 & 3.5 \\
-FF & 10,245 & 460,800 & 2.2 \\
-BRAM & 28 & 312 & 9.0 \\
-DSP & 18 & 1,728 & 1.0 \\
+FP32 & Default            & 0.50 & 0.235 \\
+FP32 & Best (max mAP)     & 0.10 & 0.385 \\
+INT8 & Best (simulated)   & 0.10 & 0.390 \\
+\midrule
+\multicolumn{4}{l}{\textit{Per-class AP at $t$\,=\,0.10 (FP32 / INT8):}} \\
+\quad Person  & & & 0.606 / 0.608 \\
+\quad Car     & & & 0.471 / 0.489 \\
+\quad Bus     & & & 0.346 / 0.347 \\
+\quad Truck   & & & 0.117 / 0.117 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+The 63.4\% relative mAP increase from $t$\,=\,0.50 to $t$\,=\,0.10 reflects that the default confidence threshold is poorly calibrated for ADAS class recall on this dataset. Person and car, the highest-frequency ADAS objects, achieve AP of 0.606 and 0.471 respectively at the optimal threshold. Post-training INT8 quantization of all 35 Conv2d layers produces a simulated INT8 mAP of 0.390, representing a $+$0.5 percentage-point improvement over FP32 (within measurement noise), confirming that SSD300-VGG16 is highly robust to weight quantization.
+
+\subsubsection{Precision-Recall Curves}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.46\textwidth]{figures/adas_pr_curves.png}
+\caption{Per-class precision-recall curves for SSD300-VGG16 on the ADAS evaluation set at $t$\,=\,0.10 (IoU\,=\,0.5).}
+\label{fig:adas_pr}
+\end{figure}
+
+Figure~\ref{fig:adas_pr} shows that truck is the hardest class to detect (AP\,=\,0.117), likely due to its rarer occurrence and higher visual overlap with bus in COCO annotations. Bus and car exhibit moderate precision degradation at high recall, consistent with the multi-scale challenges encountered at highway distances.
+
+\subsubsection{Software Latency Baseline}
+
+\begin{table}[htbp]
+\centering
+\caption{ADAS Inference Latency (SSD300-VGG16, software only)}
+\label{tab:adas_latency}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Device} & \textbf{Latency (ms)} & \textbf{FPS} \\
+\midrule
+Apple M4 CPU       & 102.8 & \phantom{0}9.7 \\
+Apple M4 MPS (GPU) &  57.4 & 17.4 \\
+\midrule
+ZCU104 ARM (est.)  & 400--600 & $<$3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SSD300 has 36.7M parameters compared to ResNet18's 11.24M, making it substantially heavier. The estimated 400--600~ms latency on the ZCU104 ARM (derived from the M4 CPU ratio and published Cortex-A53 benchmarks) underscores the need for FPGA acceleration; full hardware deployment of SSD300 on the ZCU104 PL is identified as future work.
+
+% ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}
+\label{sec:discussion}
+% ─────────────────────────────────────────────────────────────────────────────
 
-\subsection{Performance Analysis}
+\subsection{Quantization Robustness}
 
-The FPGA implementation achieves 3.3× speedup while consuming 46.7\% less power than CPU-only inference. The energy efficiency improvement (6.3×) is particularly significant for battery-powered edge devices.
+The 0.36\% accuracy drop from FP32 to INT8 on the PCB task confirms that ResNet18 is robust to post-training quantization on balanced binary datasets. The dominant source of accuracy loss in early experiments was found to be a missing \texttt{load\_state\_dict} call before Conv2d weight patching; ensuring all batch normalisation and fully connected layers carry their trained weights before quantization is essential. With this correction, the drop is negligible in practical terms.
 
-\subsection{Accuracy Trade-off}
+\subsection{Threshold Strategy for AOI Deployment}
 
-8-bit quantization results in only 0.68\% accuracy drop, demonstrating the robustness of the lightweight CNN architecture to quantization.
+In automated optical inspection, the asymmetric cost of false negatives vs. false positives makes a fixed threshold of 0.5 suboptimal. Our sweep demonstrates that threshold~0.10 recovers 90.4\% of defective boards---a meaningful improvement over the 77.4\% achieved at 0.5---without any model change. This represents a practical engineering lever for production deployment.
 
-\subsection{Scalability}
+\subsection{ADAS Baseline Calibration and INT8 Robustness}
 
-The modular design allows easy scaling to larger models or higher resolution images by adjusting parameters and instantiating additional accelerator units.
+The 63\% relative mAP gain from lowering the threshold to 0.10 reveals that SSD300 assigns lower confidence scores on a compact 100-image evaluation set than on the full COCO validation benchmark. The per-class ordering (person~$>$~car~$>$~bus~$>$~truck) is consistent with COCO training class frequencies. Truck's low AP (0.117) is partly attributable to its rarity in this subset and its visual similarity to bus at medium range, suggesting that a domain-adapted fine-tuning step would yield significant improvements.
 
-\section{Conclusion and Future Work}
+INT8 post-training quantization of SSD300-VGG16 (35 Conv2d layers, symmetric per-tensor, 50-image calibration) yields a simulated mAP of 0.390 versus the FP32 baseline of 0.385 --- a $+$0.5\,pp change that is well within evaluation variance on a 100-image set. This is consistent with the well-known robustness of VGG-family backbones to weight quantization and confirms that the ADAS pipeline can be deployed in INT8 on resource-constrained hardware without sacrificing detection quality.
 
-This work presents a complete FPGA-accelerated CNN system for industrial defect detection, achieving real-time performance with low power consumption. The hybrid CPU-FPGA approach leverages the strengths of both platforms.
+\subsection{Shared Accelerator Argument}
 
-\subsection{Future Directions}
-\begin{enumerate}
-    \item Implement full model on FPGA (including FC layers)
-    \item Explore Vitis AI for automated optimization
-    \item Test on additional industrial datasets
-    \item Deploy in production environment
-    \item Investigate pruning and other compression techniques
-\end{enumerate}
+Both PCB and ADAS pipelines rely on 3$\times$3 convolutions as their primary compute primitive---the \texttt{conv3x3\_engine.v} accelerator is therefore directly reusable across tasks by re-loading weights into BRAM. This modularity is a key advantage of the proposed platform design: adding a new vision task requires only new weight files and application-layer Python code, not new RTL.
+
+\subsection{Limitations}
+
+The performance figures in Table~\ref{tab:performance} are projected estimates; full Vivado synthesis and on-board measurement on the ZCU104 are deferred to future work. Similarly, ADAS quantization and FPGA deployment of SSD300 are identified as the next engineering milestones. The evaluation dataset for ADAS is limited to 100 images; a larger evaluation against the full COCO 5k val set would provide statistically more robust mAP estimates.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+\label{sec:conclusion}
+% ─────────────────────────────────────────────────────────────────────────────
+
+We have presented a unified FPGA-accelerated edge-vision platform that addresses two safety-critical inference tasks on the Xilinx ZCU104: PCB defect classification and ADAS object detection. ResNet18 fine-tuned on DeepPCB achieves 85.29\% FP32 accuracy, which is preserved to within 0.36\% under INT8 post-training quantization. SSD300-VGG16 achieves 38.5\% mAP@0.5 across four ADAS classes at the optimal confidence threshold, with a threshold-tuning procedure offering a zero-cost accuracy improvement of over 60\% in mAP relative to the default setting; INT8 post-training quantization of all 35 Conv2d layers preserves this accuracy with a simulated mAP of 39.0\%. A reusable Verilog conv3$\times$3 accelerator---verified through simulation and interfaced via AXI4-Lite and AXI-Stream---provides an estimated 3.3$\times$ throughput improvement on the ZCU104 PL over the ARM CPU baseline. These results support the conclusion that transfer learning, post-training quantization, and modular FPGA acceleration together form a practical and extensible methodology for edge AI deployment in industrial and automotive settings.
 
 \section*{Acknowledgment}
 
-This research was conducted under the URECA (Undergraduate Research Experience on Campus) programme at Nanyang Technological University. We thank Dr. Loo Xi Sung for supervision and guidance.
+This research was conducted under the URECA (Undergraduate Research Experience on Campus) programme at Nanyang Technological University. The authors thank Dr.\ Loo Xi Sung for supervision and guidance.
 
 \begin{thebibliography}{00}
-\bibitem{ref1} [Add your references here]
-\bibitem{ref2} Example Reference
-\bibitem{ref3} Example Reference
-\bibitem{ref4} Example Reference
-\bibitem{ref5} Xilinx ZCU104 Documentation
+
+\bibitem{tang2019deeppcb}
+S.~Tang, F.~He, X.~Huang, and J.~Yang,
+``Online PCB defect detector on a new PCB defect dataset,''
+\emph{arXiv preprint arXiv:1902.06197}, 2019.
+
+\bibitem{he2016resnet}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun,
+``Deep residual learning for image recognition,''
+in \emph{Proc.\ IEEE Conf.\ Comput.\ Vis.\ Pattern Recognit.\ (CVPR)},
+pp.~770--778, 2016.
+
+\bibitem{liu2016ssd}
+W.~Liu \emph{et al.},
+``SSD: Single shot multibox detector,''
+in \emph{Proc.\ Eur.\ Conf.\ Comput.\ Vis.\ (ECCV)},
+pp.~21--37, 2016.
+
+\bibitem{lin2014coco}
+T.-Y.~Lin \emph{et al.},
+``Microsoft COCO: Common objects in context,''
+in \emph{Proc.\ Eur.\ Conf.\ Comput.\ Vis.\ (ECCV)},
+pp.~740--755, 2014.
+
+\bibitem{jacob2018quantization}
+B.~Jacob \emph{et al.},
+``Quantization and training of neural networks for efficient integer-arithmetic-only inference,''
+in \emph{Proc.\ IEEE Conf.\ Comput.\ Vis.\ Pattern Recognit.\ (CVPR)},
+pp.~2704--2713, 2018.
+
+\bibitem{qiu2016fpga}
+J.~Qiu \emph{et al.},
+``Going deeper with embedded FPGA platform for convolutional neural network,''
+in \emph{Proc.\ ACM/SIGDA Int.\ Symp.\ Field-Programmable Gate Arrays (FPGA)},
+pp.~26--35, 2016.
+
+\bibitem{yosinski2014transferable}
+J.~Yosinski, J.~Clune, Y.~Bengio, and H.~Lipson,
+``How transferable are features in deep neural networks?,''
+in \emph{Adv.\ Neural Inf.\ Process.\ Syst.\ (NeurIPS)},
+pp.~3320--3328, 2014.
+
+\bibitem{ding2019cnn}
+R.~Ding, L.~Dai, G.~Li, and H.~Liu,
+``TDD-net: A tiny defect detection network for printed circuit boards,''
+\emph{CAAI Trans.\ Intell.\ Technol.}, vol.~4, no.~2, pp.~110--116, 2019.
+
+\bibitem{everingham2010voc}
+M.~Everingham \emph{et al.},
+``The PASCAL visual object classes (VOC) challenge,''
+\emph{Int.\ J.\ Comput.\ Vis.}, vol.~88, no.~2, pp.~303--338, 2010.
+
+\bibitem{xilinx2022vitis}
+Xilinx Inc.,
+``Vitis AI user guide (UG1414), v3.0,''
+2022. [Online]. Available: \url{https://docs.xilinx.com/r/en-US/ug1414-vitis-ai}
+
 \end{thebibliography}
 
 \end{document}

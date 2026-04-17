@@ -1,0 +1,26 @@
+{
+  "model": {
+    "checkpoint": "/Users/arjunprakash/PCBDefects-with-FPGAs/models/checkpoints/best_model.pth",
+    "best_acc_pct": 88.0,
+    "epoch": 41,
+    "params_M": 11.242,
+    "input_size": 96
+  },
+  "benchmark_config": {
+    "warmup_runs": 50,
+    "timed_runs": 500,
+    "batch_size": 1
+  },
+  "cpu": {
+    "mean_ms": 5.664,
+    "std_ms": 0.315,
+    "fps": 176.6,
+    "p95_ms": 6.189
+  },
+  "mps": {
+    "mean_ms": 3.237,
+    "std_ms": 0.362,
+    "fps": 308.9,
+    "p95_ms": 3.861
+  }
+}
