@@ -33,7 +33,7 @@ xslung@ntu.edu.sg}
 \maketitle
 
 \begin{abstract}
-Deploying deep learning inference at the edge demands both high accuracy and low latency under tight power budgets. This paper presents a unified FPGA-accelerated edge-vision platform targeting two safety-critical applications: (1)~PCB defect classification using a ResNet18 model trained via transfer learning on the DeepPCB dataset, achieving 85.29\% FP32 and 84.93\% INT8 accuracy with only a 0.36\% quantization drop; and (2)~ADAS object detection using a pre-trained SSD300-VGG16 evaluated on COCO, reaching 38.5\% mAP@0.5 across four ADAS classes at the optimal confidence threshold. Both inference pipelines share a common Verilog conv3x3 accelerator core deployed on the Xilinx ZCU104 Zynq UltraScale+ MPSoC, interfaced via AXI4-Lite control and AXI-Stream data buses. Estimated hardware acceleration of the convolution and ReLU layers on the ZCU104 PL fabric achieves a 3.3$\times$ throughput improvement over the on-chip ARM Cortex-A53 baseline, projecting real-time processing at 33~FPS. Our results demonstrate that transfer learning combined with post-training INT8 quantization and a modular FPGA accelerator constitutes an effective approach for edge AI in industrial and automotive domains.
+Deploying deep learning inference at the edge demands both high accuracy and low latency under tight power budgets. This paper presents a unified FPGA-accelerated edge-vision platform targeting two safety-critical applications: (1)~PCB defect classification using a ResNet18 model trained via transfer learning on the DeepPCB dataset, achieving 85.29\% FP32 and 84.93\% INT8 accuracy with only a 0.36\% quantization drop; and (2)~ADAS object detection using a pre-trained SSD300-VGG16 evaluated on COCO, reaching 38.5\% mAP@0.5 across four ADAS classes at the optimal confidence threshold, with INT8 quantization of all 35 Conv2d layers producing 39.0\% mAP --- essentially zero accuracy loss. Both inference pipelines share a common Verilog conv3x3 accelerator core deployed on the Xilinx ZCU104 Zynq UltraScale+ MPSoC, interfaced via AXI4-Lite control and AXI-Stream data buses. Estimated hardware acceleration of the convolution and ReLU layers on the ZCU104 PL fabric achieves a 3.3$\times$ throughput improvement over the on-chip ARM Cortex-A53 baseline, projecting real-time processing at 33~FPS. Our results demonstrate that transfer learning combined with post-training INT8 quantization and a modular FPGA accelerator constitutes an effective approach for edge AI in industrial and automotive domains.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -289,23 +289,24 @@ Table~\ref{tab:adas_map} reports mAP@0.5 at the default and optimal confidence t
 \centering
 \caption{ADAS mAP@0.5 (SSD300-VGG16, COCO val2017 subset, $n$\,=\,100)}
 \label{tab:adas_map}
-\begin{tabular}{lcc}
+\begin{tabular}{llcc}
 \toprule
-\textbf{Configuration} & \textbf{Threshold} & \textbf{mAP@0.5} \\
+\textbf{Precision} & \textbf{Configuration} & \textbf{Threshold} & \textbf{mAP@0.5} \\
 \midrule
-Default              & 0.50 & 0.235 \\
-Best (max mAP)       & 0.10 & 0.385 \\
+FP32 & Default            & 0.50 & 0.235 \\
+FP32 & Best (max mAP)     & 0.10 & 0.385 \\
+INT8 & Best (simulated)   & 0.10 & 0.390 \\
 \midrule
-\multicolumn{3}{l}{\textit{Per-class AP at threshold 0.10:}} \\
-\quad Person         &      & 0.606 \\
-\quad Car            &      & 0.471 \\
-\quad Bus            &      & 0.346 \\
-\quad Truck          &      & 0.117 \\
+\multicolumn{4}{l}{\textit{Per-class AP at $t$\,=\,0.10 (FP32 / INT8):}} \\
+\quad Person  & & & 0.606 / 0.608 \\
+\quad Car     & & & 0.471 / 0.489 \\
+\quad Bus     & & & 0.346 / 0.347 \\
+\quad Truck   & & & 0.117 / 0.117 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The 63.4\% relative mAP increase from $t$\,=\,0.50 to $t$\,=\,0.10 reflects that the default confidence threshold is poorly calibrated for ADAS class recall on this dataset. Person and car, the highest-frequency ADAS objects, achieve AP of 0.606 and 0.471 respectively at the optimal threshold.
+The 63.4\% relative mAP increase from $t$\,=\,0.50 to $t$\,=\,0.10 reflects that the default confidence threshold is poorly calibrated for ADAS class recall on this dataset. Person and car, the highest-frequency ADAS objects, achieve AP of 0.606 and 0.471 respectively at the optimal threshold. Post-training INT8 quantization of all 35 Conv2d layers produces a simulated INT8 mAP of 0.390, representing a $+$0.5 percentage-point improvement over FP32 (within measurement noise), confirming that SSD300-VGG16 is highly robust to weight quantization.
 
 \subsubsection{Precision-Recall Curves}
 
@@ -351,9 +352,11 @@ The 0.36\% accuracy drop from FP32 to INT8 on the PCB task confirms that ResNet1
 
 In automated optical inspection, the asymmetric cost of false negatives vs. false positives makes a fixed threshold of 0.5 suboptimal. Our sweep demonstrates that threshold~0.10 recovers 90.4\% of defective boards---a meaningful improvement over the 77.4\% achieved at 0.5---without any model change. This represents a practical engineering lever for production deployment.
 
-\subsection{ADAS Baseline Calibration}
+\subsection{ADAS Baseline Calibration and INT8 Robustness}
 
 The 63\% relative mAP gain from lowering the threshold to 0.10 reveals that SSD300 assigns lower confidence scores on a compact 100-image evaluation set than on the full COCO validation benchmark. The per-class ordering (person~$>$~car~$>$~bus~$>$~truck) is consistent with COCO training class frequencies. Truck's low AP (0.117) is partly attributable to its rarity in this subset and its visual similarity to bus at medium range, suggesting that a domain-adapted fine-tuning step would yield significant improvements.
+
+INT8 post-training quantization of SSD300-VGG16 (35 Conv2d layers, symmetric per-tensor, 50-image calibration) yields a simulated mAP of 0.390 versus the FP32 baseline of 0.385 --- a $+$0.5\,pp change that is well within evaluation variance on a 100-image set. This is consistent with the well-known robustness of VGG-family backbones to weight quantization and confirms that the ADAS pipeline can be deployed in INT8 on resource-constrained hardware without sacrificing detection quality.
 
 \subsection{Shared Accelerator Argument}
 
@@ -368,7 +371,7 @@ The performance figures in Table~\ref{tab:performance} are projected estimates; 
 \label{sec:conclusion}
 % ─────────────────────────────────────────────────────────────────────────────
 
-We have presented a unified FPGA-accelerated edge-vision platform that addresses two safety-critical inference tasks on the Xilinx ZCU104: PCB defect classification and ADAS object detection. ResNet18 fine-tuned on DeepPCB achieves 85.29\% FP32 accuracy, which is preserved to within 0.36\% under INT8 post-training quantization. SSD300-VGG16 achieves 38.5\% mAP@0.5 across four ADAS classes at the optimal confidence threshold, with a threshold-tuning procedure offering a zero-cost accuracy improvement of over 60\% in mAP relative to the default setting. A reusable Verilog conv3$\times$3 accelerator---verified through simulation and interfaced via AXI4-Lite and AXI-Stream---provides an estimated 3.3$\times$ throughput improvement on the ZCU104 PL over the ARM CPU baseline. These results support the conclusion that transfer learning, post-training quantization, and modular FPGA acceleration together form a practical and extensible methodology for edge AI deployment in industrial and automotive settings.
+We have presented a unified FPGA-accelerated edge-vision platform that addresses two safety-critical inference tasks on the Xilinx ZCU104: PCB defect classification and ADAS object detection. ResNet18 fine-tuned on DeepPCB achieves 85.29\% FP32 accuracy, which is preserved to within 0.36\% under INT8 post-training quantization. SSD300-VGG16 achieves 38.5\% mAP@0.5 across four ADAS classes at the optimal confidence threshold, with a threshold-tuning procedure offering a zero-cost accuracy improvement of over 60\% in mAP relative to the default setting; INT8 post-training quantization of all 35 Conv2d layers preserves this accuracy with a simulated mAP of 39.0\%. A reusable Verilog conv3$\times$3 accelerator---verified through simulation and interfaced via AXI4-Lite and AXI-Stream---provides an estimated 3.3$\times$ throughput improvement on the ZCU104 PL over the ARM CPU baseline. These results support the conclusion that transfer learning, post-training quantization, and modular FPGA acceleration together form a practical and extensible methodology for edge AI deployment in industrial and automotive settings.
 
 \section*{Acknowledgment}
 
