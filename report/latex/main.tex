@@ -64,19 +64,19 @@ The rest of the paper is organised as follows. Section~\ref{sec:related} surveys
 % ─────────────────────────────────────────────────────────────────────────────
 
 \subsection{CNN-Based Industrial Inspection}
-Convolutional neural networks have become the dominant approach for automated visual inspection. Tang \emph{et al.}~\cite{tang2019deeppcb} introduced the DeepPCB dataset and demonstrated that deep CNNs can localise seven defect categories in PCB test images with high precision. Subsequent work has explored lightweight architectures and data augmentation strategies to cope with the class-imbalance characteristic of defect datasets~\cite{ding2019cnn}.
+Convolutional neural networks have become the dominant approach for automated visual inspection. Tang \emph{et al.}~\cite{tang2019deeppcb} introduced the DeepPCB dataset and demonstrated that deep CNNs can localise seven defect categories---open circuits, short circuits, mouse bites, spurious copper, missing holes, pin holes, and spurs---in PCB test images with high precision using a difference-image pipeline. Ding \emph{et al.}~\cite{ding2019cnn} proposed TDD-net, a tiny defect detection network tailored to PCBs, highlighting that model compactness is a first-order concern for deployment on factory-floor hardware with limited memory budgets. In contrast to detection-centric approaches, our work frames PCB inspection as binary image classification (defect / normal), which is well-suited to FPGA deployment because it eliminates the variable-length bounding-box output stage and reduces the hardware post-processing to a single threshold comparison.
 
-\subsection{Transfer Learning}
-Pre-training on large-scale datasets such as ImageNet and fine-tuning on domain-specific data has proven consistently effective across industrial vision tasks. He \emph{et al.}~\cite{he2016resnet} showed that residual skip connections enable training of very deep networks while reducing gradient vanishing; ResNet18 in particular offers a favourable accuracy-versus-parameter trade-off for edge deployment.  Yosinski \emph{et al.}~\cite{yosinski2014transferable} established that lower-layer features transfer well across domains, justifying a two-phase strategy---frozen backbone followed by end-to-end fine-tuning---which we adopt here.
+\subsection{Transfer Learning for Domain Adaptation}
+Pre-training on large-scale datasets such as ImageNet and fine-tuning on domain-specific data has proven consistently effective across industrial vision tasks. He \emph{et al.}~\cite{he2016resnet} showed that residual skip connections enable training of very deep networks while mitigating gradient vanishing; the residual formulation also makes the network more tolerant to weight perturbations, which is directly relevant to quantization robustness. ResNet18 in particular offers a favourable accuracy-versus-parameter trade-off for edge deployment, with 11.24M parameters fitting comfortably within the on-chip BRAM budget of the ZCU104. Yosinski \emph{et al.}~\cite{yosinski2014transferable} established empirically that low- and mid-level features (edges, textures, simple shapes) transfer across domains with negligible loss, while high-level semantic features are more task-specific. This motivates the two-phase strategy we adopt: freezing the backbone during initial head training prevents catastrophic forgetting of the transferred texture features that are directly useful for defect localisation, while the subsequent end-to-end fine-tuning phase allows the deeper layers to specialise to PCB surface characteristics.
 
 \subsection{Object Detection and ADAS}
-Single Shot MultiBox Detector (SSD)~\cite{liu2016ssd} introduced multi-scale default boxes enabling real-time detection without a region proposal stage. Applied to COCO~\cite{lin2014coco}, SSD300-VGG16 demonstrates strong detection of the ADAS-relevant classes (person, car, bus, truck) and has served as a widely adopted baseline in autonomous driving research.
+Single Shot MultiBox Detector (SSD)~\cite{liu2016ssd} introduced multi-scale default anchor boxes at multiple feature map resolutions, enabling real-time detection in a single forward pass without a separate region proposal stage. This end-to-end design makes SSD substantially more latency-friendly than two-stage detectors such as Faster R-CNN, which is critical for ADAS applications where detection latency directly affects braking distance. SSD300-VGG16 with COCO-pretrained weights achieves competitive performance on the person, car, bus, and truck classes that are most safety-critical for highway and urban driving scenarios~\cite{lin2014coco}. A key challenge with off-the-shelf COCO models in ADAS evaluation is threshold calibration: confidence scores are tuned implicitly to the full 80-class distribution, and direct application to a 4-class ADAS subset requires threshold re-optimisation, as we demonstrate in Section~\ref{sec:results}.
 
 \subsection{Post-Training Quantization}
-Jacob \emph{et al.}~\cite{jacob2018quantization} formalised symmetric and affine INT8 quantization for neural network inference, showing that calibration over a small number of representative batches is sufficient to recover near-FP32 accuracy. This motivates our PTQ approach, which avoids the computational expense of quantization-aware training.
+Jacob \emph{et al.}~\cite{jacob2018quantization} formalised symmetric and affine INT8 quantization for neural network inference, proving that calibration over as few as 100 representative inputs is sufficient to characterise activation distributions and recover near-FP32 accuracy. Symmetric quantization---mapping weight magnitudes to $[-127, 127]$ with a single scale factor $s = \max(|w|)/127$---is particularly well-suited to FPGA deployment because the zero-point is always zero, eliminating an add operation from every MAC unit. Quantization-aware training (QAT) can recover additional accuracy in challenging cases, but at the cost of rerunning the full training loop; for the balanced binary PCB dataset and the large-capacity VGG16 backbone used in SSD300, we find that PTQ achieves accuracy within noise of the FP32 baseline, making QAT unnecessary.
 
 \subsection{FPGA-Based CNN Acceleration}
-Qiu \emph{et al.}~\cite{qiu2016fpga} demonstrated a complete FPGA pipeline for VGG-type networks on a Xilinx FPGA, establishing the viability of fixed-point convolutional engines with line-buffer data-paths. More recent work leverages Xilinx Vitis AI~\cite{xilinx2022vitis} and the PYNQ framework to reduce the hardware-software integration effort for Zynq-family devices.
+Qiu \emph{et al.}~\cite{qiu2016fpga} demonstrated a complete FPGA pipeline for VGG-type networks on a Xilinx Zynq device, establishing the viability of fixed-point convolutional engines with line-buffer sliding-window data-paths and DSP-based MAC arrays. Their work reported a 6.4$\times$ speedup over a mobile GPU at 4$\times$ lower power, motivating the PS-PL heterogeneous integration approach we follow. The Xilinx Vitis AI toolchain~\cite{xilinx2022vitis} automates quantization and deployment on Zynq UltraScale+ devices, but requires device access for synthesis and bitstream generation; our hand-written Verilog approach sacrifices some automation in exchange for full control over the micro-architecture and portability to simulation-only verification, which is important during early-stage URECA research where board access is intermittent.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{System Architecture}
@@ -158,7 +158,15 @@ We use SSD300-VGG16~\cite{liu2016ssd} with COCO-pretrained weights from \texttt{
 
 \subsubsection{Evaluation Protocol}
 
-Mean Average Precision at IoU threshold 0.5 (mAP@0.5) is computed using the 11-point interpolation method~\cite{everingham2010voc}, averaged over the four ADAS classes. A confidence threshold sweep from 0.10 to 0.90 (step 0.05) is performed to identify the optimal detection threshold.
+Mean Average Precision at IoU threshold 0.5 (mAP@0.5) is computed using the 11-point interpolation method~\cite{everingham2010voc}. For each class $c$, the Average Precision is:
+\begin{equation}
+\text{AP}_c = \frac{1}{11}\sum_{r \in \{0, 0.1, \ldots, 1.0\}} \max_{\tilde{r} \geq r} p_c(\tilde{r}),
+\end{equation}
+where $p_c(r)$ is the precision at recall level $r$. A predicted box is a true positive if its IoU with the best-matching ground-truth box of the same class exceeds 0.5, and each ground-truth box may be matched at most once. The final mAP is averaged over the four ADAS classes:
+\begin{equation}
+\text{mAP@0.5} = \frac{1}{4}\sum_{c \in \{\text{person, car, bus, truck}\}} \text{AP}_c.
+\end{equation}
+A confidence threshold sweep from 0.10 to 0.90 (step 0.05) is performed to identify the operating point that maximises mAP@0.5. Only detections belonging to the four ADAS classes are counted; detections of the remaining 76 COCO classes are discarded before evaluation to avoid diluting the mAP with irrelevant categories.
 
 \subsection{Shared Hardware Accelerator}
 
@@ -166,18 +174,26 @@ Mean Average Precision at IoU threshold 0.5 (mAP@0.5) is computed using the 11-p
 
 The Verilog module \texttt{conv3x3\_engine.v} implements a parametric INT8 convolution engine. Key design choices:
 \begin{itemize}
-    \item \textbf{Fixed-point arithmetic}: 8-bit signed inputs and weights; 16-bit signed accumulation to prevent overflow across nine MAC operations.
-    \item \textbf{Line-buffer pipeline}: Three line buffers store one sliding-window row each, enabling pixel-by-pixel throughput after an initial fill latency.
-    \item \textbf{Weight interface}: A 72-bit flat bus (\texttt{weight\_flat[71:0]}) packs all nine 8-bit kernel coefficients, exposed as a combinational output from \texttt{weight\_bram.v}.
+    \item \textbf{Fixed-point arithmetic}: 8-bit signed inputs and weights; 16-bit signed accumulation to prevent overflow across nine concurrent MAC operations ($9 \times (-128 \times -128) = 147{,}456 < 2^{17}$, safely within a 16-bit signed range of $\pm32{,}767$).
+    \item \textbf{Line-buffer pipeline}: Three line buffers store one row of the input feature map each. As new pixels arrive over AXI-Stream, the buffers shift to maintain a 3$\times$3 sliding window, achieving pixel-by-pixel throughput after an initial fill latency of $2W$ clock cycles (where $W$ is the input width).
+    \item \textbf{Weight interface}: A 72-bit flat bus (\texttt{weight\_flat[71:0]}) packs all nine 8-bit kernel coefficients combinationally from the dual-port BRAM, avoiding a sequential weight-read FSM and reducing critical-path depth.
 \end{itemize}
+
+The pipeline produces one output activation per clock cycle at steady state. For the first ResNet18 convolutional layer (64 filters, 3$\times$3 kernel, 96$\times$96 input), the estimated processing time at a 100~MHz PL clock is:
+
+\begin{equation}
+T_\text{conv} = \frac{N_\text{out} \times H \times W}{f_\text{clk}} = \frac{64 \times 96 \times 96}{100 \times 10^6} \approx 5.9\;\text{ms},
+\end{equation}
+
+where $N_\text{out}$ is the number of output channels. Summing across all ResNet18 convolutional layers and accounting for data transfer overhead, the projected end-to-end PL accelerator time of 30~ms is consistent with this per-layer estimate.
 
 \subsubsection{ReLU Module}
 
-\texttt{relu.v} is a purely combinational module that clips the 16-bit accumulator output to zero: $\text{out} = \max(0, \text{in})$. One-cycle latency. Shared by both inference pipelines.
+\texttt{relu.v} is a purely combinational module that clips the 16-bit accumulator output to zero: $\text{out} = \max(0, \text{in})$. It adds zero pipeline stages and introduces no additional latency. Being purely combinational, the ReLU is absorbed into the conv engine's output stage and shared across both inference pipelines without any hardware duplication.
 
 \subsubsection{AXI Wrapper}
 
-\texttt{axi\_conv\_wrapper.v} integrates the conv engine, ReLU, and weight BRAM into a single AXI-compliant IP core. It decodes AXI4-Lite register writes for configuration and exposes an AXI-Stream slave for pixel ingestion and an AXI-Stream master for result egress. The wrapper was verified for port compatibility using Icarus Verilog with \texttt{-g2012} flags.
+\texttt{axi\_conv\_wrapper.v} integrates the conv engine, ReLU, and weight BRAM into a single AXI-compliant IP core. The AXI4-Lite slave decodes register writes at addresses \texttt{0x00}--\texttt{0x14} for start/reset control and image configuration; the \texttt{done} and \texttt{busy} status bits at \texttt{0x04} allow the ARM PS to poll completion without interrupts. The AXI-Stream slave accepts quantized pixel bytes from the PS DMA engine at full bus bandwidth, and the AXI-Stream master returns 16-bit accumulator values to an output buffer in PS DDR memory. The wrapper was verified for interface correctness using Icarus Verilog (\texttt{-g2012}), confirming zero port-width mismatches across all three submodule instantiations.
 
 \subsubsection{Estimated Resource Utilization}
 
