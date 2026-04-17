@@ -304,6 +304,13 @@ The FPGA implementation achieves 3.3× speedup while consuming 46.7\% less power
 
 8-bit post-training quantization results in only 0.36\% accuracy drop (85.29\% FP32 to 84.93\% INT8), demonstrating the robustness of the ResNet18-based architecture to quantization.
 
+\subsection{Threshold Tuning for Industrial Deployment}
+
+At the default threshold of 0.5, the model achieves 77.4\% defect recall and 91.9\% defect precision.
+In quality-control applications, missing a defective PCB (false negative) is typically more costly than a false alarm.
+By lowering the classification threshold to 0.10, defect recall improves to 90.4\% while precision remains at 79.6\% (F1\,=\,0.847, overall accuracy 83.6\%).
+This threshold is tunable at inference time with no retraining required, offering a practical knob for operators to balance throughput against escape rate.
+
 \subsection{Scalability}
 
 The modular design allows easy scaling to larger models or higher resolution images by adjusting parameters and instantiating additional accelerator units.
