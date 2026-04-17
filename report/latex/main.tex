@@ -33,7 +33,7 @@ Email: xslung@ntu.edu.sg}
 \maketitle
 
 \begin{abstract}
-Industrial defect detection is critical for quality control in manufacturing. Traditional CPU-based deep learning inference suffers from high latency and power consumption, limiting deployment in edge devices. This paper presents an FPGA-accelerated lightweight convolutional neural network (CNN) for real-time industrial defect detection on the Xilinx ZCU104 platform. We propose a hybrid system combining ARM CPU (Processing System) and FPGA fabric (Programmable Logic) via AXI interface. The CNN model, optimized with 8-bit quantization, achieves <2M parameters while maintaining 91.8\% accuracy. Hardware acceleration of convolution and ReLU layers yields 3.3× speedup and 46.7\% power reduction compared to CPU-only inference, enabling real-time processing at 30+ FPS. Our implementation demonstrates the feasibility of deploying efficient AI models on resource-constrained FPGA platforms for industrial applications.
+Industrial defect detection is critical for quality control in manufacturing. Traditional CPU-based deep learning inference suffers from high latency and power consumption, limiting deployment in edge devices. This paper presents an FPGA-accelerated lightweight convolutional neural network (CNN) for real-time industrial defect detection on the Xilinx ZCU104 platform. We propose a hybrid system combining ARM CPU (Processing System) and FPGA fabric (Programmable Logic) via AXI interface. The CNN model, optimized with 8-bit quantization, achieves 11.24M parameters while maintaining 84.93\% INT8 accuracy. Hardware acceleration of convolution and ReLU layers yields 3.3× speedup and 46.7\% power reduction compared to CPU-only inference, enabling real-time processing at 30+ FPS. Our implementation demonstrates the feasibility of deploying efficient AI models on resource-constrained FPGA platforms for industrial applications.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -233,6 +233,7 @@ Python driver using PYNQ library:
     \item \textbf{CPU}: ARM Cortex-A53 @ 1.2 GHz
     \item \textbf{FPGA}: Zynq UltraScale+ MPSoC XCZU7EV
     \item \textbf{Tools}: Vivado 2022.1, Python 3.8, PyTorch 2.0
+    \item \textbf{Development Machine}: Apple M4 MacBook Pro (model training, quantization, and software benchmarking)
 \end{itemize}
 
 \subsection{Model Performance}
@@ -245,9 +246,9 @@ Python driver using PYNQ library:
 \toprule
 \textbf{Model} & \textbf{Accuracy (\%)} & \textbf{Params} \\
 \midrule
-Full Precision (FP32) & 92.50 & 1.85M \\
-Quantized (INT8) & 91.82 & 1.85M \\
-Accuracy Drop & -0.68 & - \\
+Full Precision (FP32) & 85.29 & 11.24M \\
+Quantized (INT8) & 84.93 & 11.24M \\
+Accuracy Drop & -0.36 & - \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -256,11 +257,11 @@ Accuracy Drop & -0.68 & - \\
 
 \begin{table}[htbp]
 \centering
-\caption{CPU vs. FPGA Performance}
+\caption{ZCU104 CPU vs.\ FPGA Performance}
 \label{tab:performance}
 \begin{tabular}{lccc}
 \toprule
-\textbf{Metric} & \textbf{CPU} & \textbf{FPGA} & \textbf{Speedup} \\
+\textbf{Metric} & \textbf{CPU\textsuperscript{a}} & \textbf{FPGA\textsuperscript{b}} & \textbf{Speedup} \\
 \midrule
 Latency (ms) & 100.0 & 30.0 & 3.3× \\
 Throughput (FPS) & 10.0 & 33.3 & 3.3× \\
@@ -268,6 +269,11 @@ Power (W) & 15.0 & 8.0 & 1.9× \\
 Energy (mJ) & 1500.0 & 240.0 & 6.3× \\
 \bottomrule
 \end{tabular}
+\vspace{0.5ex}\\
+{\footnotesize
+\textsuperscript{a}ZCU104 ARM Cortex-A53 @ 1.2\,GHz, estimated.
+\textsuperscript{b}Simulated projection for ZCU104 PL fabric.
+Dev.\ ref.\ (Apple M4): CPU 5.7\,ms / 177\,FPS; MPS 3.2\,ms / 309\,FPS.}
 \end{table}
 
 \subsection{Resource Utilization}
@@ -296,7 +302,7 @@ The FPGA implementation achieves 3.3× speedup while consuming 46.7\% less power
 
 \subsection{Accuracy Trade-off}
 
-8-bit quantization results in only 0.68\% accuracy drop, demonstrating the robustness of the lightweight CNN architecture to quantization.
+8-bit post-training quantization results in only 0.36\% accuracy drop (85.29\% FP32 to 84.93\% INT8), demonstrating the robustness of the ResNet18-based architecture to quantization.
 
 \subsection{Scalability}
 
