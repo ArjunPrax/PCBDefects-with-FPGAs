@@ -44,3 +44,6 @@ report/latex/*.pdf
 report/latex/*.toc
 report/latex/*.bbl
 report/latex/*.blg
+
+# Paper and figures — private, not for public repo
+report/
