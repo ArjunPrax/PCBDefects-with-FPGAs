@@ -144,132 +144,161 @@ def plot_threshold_sweep():
 def plot_architecture():
     print("\n[3/3] System architecture diagram ...")
 
-    fig, ax = plt.subplots(figsize=(11, 6))
-    ax.set_xlim(0, 11); ax.set_ylim(0, 6)
+    plt.rcParams.update({'font.family': 'DejaVu Sans'})
+    fig, ax = plt.subplots(figsize=(13, 7))
+    ax.set_xlim(0, 13); ax.set_ylim(0, 7)
     ax.axis('off')
+    fig.patch.set_facecolor('#1a1a2e')
+    ax.set_facecolor('#1a1a2e')
 
-    def box(ax, x, y, w, h, label, sublabel=None,
-            facecolor='#d6eaf8', edgecolor='#2980b9', fontsize=10):
-        rect = FancyBboxPatch((x, y), w, h,
-                              boxstyle="round,pad=0.08",
-                              facecolor=facecolor, edgecolor=edgecolor,
-                              linewidth=1.5)
-        ax.add_patch(rect)
-        ty = y + h/2 + (0.15 if sublabel else 0)
-        ax.text(x + w/2, ty, label, ha='center', va='center',
-                fontsize=fontsize, fontweight='bold', color='#1a252f')
-        if sublabel:
-            ax.text(x + w/2, y + h/2 - 0.22, sublabel, ha='center', va='center',
-                    fontsize=8, color='#555555')
+    # ── Colour palette ────────────────────────────────────────
+    C = {
+        'bg':        '#1a1a2e',
+        'ps_fill':   '#16213e',
+        'ps_border': '#0f3460',
+        'pl_fill':   '#0f3460',
+        'pl_border': '#533483',
+        'block_ps':  '#1a4a6b',
+        'block_pl':  '#2d1b69',
+        'block_io':  '#1b4332',
+        'block_drv': '#3d1515',
+        'axi':       '#4a3728',
+        'text':      '#e0e0e0',
+        'subtext':   '#a0a0b0',
+        'arrow_ps':  '#4fc3f7',
+        'arrow_pl':  '#ce93d8',
+        'arrow_ctrl':'#ef9a9a',
+        'arrow_data':'#a5d6a7',
+        'border_ps': '#4fc3f7',
+        'border_pl': '#ce93d8',
+        'border_io': '#66bb6a',
+        'border_drv':'#ef5350',
+        'axi_border':'#ffb74d',
+    }
 
-    def arrow(ax, x1, y1, x2, y2, label='', color='#2c3e50'):
+    def rect(x, y, w, h, fc, ec, lw=1.5, ls='-', alpha=1.0):
+        ax.add_patch(plt.Rectangle((x, y), w, h,
+                     facecolor=fc, edgecolor=ec,
+                     linewidth=lw, linestyle=ls, alpha=alpha))
+
+    def label(x, y, txt, fs=9, color=None, bold=False, ha='center', va='center'):
+        ax.text(x, y, txt, ha=ha, va=va, fontsize=fs,
+                color=color or C['text'],
+                fontweight='bold' if bold else 'normal')
+
+    def block(x, y, w, h, title, subtitle='', fc=None, ec=None):
+        fc = fc or C['block_ps']
+        ec = ec or C['border_ps']
+        rect(x, y, w, h, fc, ec, lw=1.8)
+        if subtitle:
+            label(x + w/2, y + h/2 + 0.18, title, fs=8.5, bold=True)
+            label(x + w/2, y + h/2 - 0.18, subtitle, fs=7.5, color=C['subtext'])
+        else:
+            label(x + w/2, y + h/2, title, fs=8.5, bold=True)
+
+    def arrowh(x1, x2, y, txt='', color=None, above=True):
+        color = color or C['arrow_ps']
+        ax.annotate('', xy=(x2, y), xytext=(x1, y),
+                    arrowprops=dict(arrowstyle='->', color=color, lw=1.6,
+                                   mutation_scale=14))
+        if txt:
+            ty = y + (0.18 if above else -0.18)
+            label((x1+x2)/2, ty, txt, fs=7, color=color)
+
+    def arrowv(x, y1, y2, txt='', color=None, right=True):
+        color = color or C['arrow_ps']
+        ax.annotate('', xy=(x, y2), xytext=(x, y1),
+                    arrowprops=dict(arrowstyle='->', color=color, lw=1.6,
+                                   mutation_scale=14))
+        if txt:
+            tx = x + (0.22 if right else -0.22)
+            label(tx, (y1+y2)/2, txt, fs=7, color=color, ha='left' if right else 'right')
+
+    def arrowdiag(x1, y1, x2, y2, txt='', color=None):
+        color = color or C['arrow_ps']
         ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle='->', color=color,
-                                   lw=1.8, connectionstyle='arc3,rad=0'))
-        if label:
-            mx, my = (x1+x2)/2, (y1+y2)/2
-            ax.text(mx, my + 0.15, label, ha='center', va='bottom',
-                    fontsize=8, color=color,
-                    bbox=dict(boxstyle='round,pad=0.2', fc='white', ec='none', alpha=0.8))
+                    arrowprops=dict(arrowstyle='->', color=color, lw=1.6,
+                                   mutation_scale=14,
+                                   connectionstyle='arc3,rad=-0.2'))
+        if txt:
+            label((x1+x2)/2 + 0.1, (y1+y2)/2 + 0.2, txt, fs=7, color=color)
 
-    # ── Title ────────────────────────────────────────────────
-    ax.text(5.5, 5.65, 'FPGA-Accelerated Inference System — Xilinx ZCU104',
-            ha='center', va='center', fontsize=12, fontweight='bold')
+    # ── Region backgrounds ────────────────────────────────────
+    rect(0.3, 0.4, 5.4, 6.1, C['ps_fill'], C['ps_border'], lw=2, ls='--', alpha=0.9)
+    rect(6.5, 0.4, 6.1, 6.1, C['pl_fill'], C['pl_border'], lw=2, ls='--', alpha=0.9)
 
-    # ── Outer boundary boxes ─────────────────────────────────
-    # PS (ARM) region
-    ps_rect = FancyBboxPatch((0.2, 0.3), 4.5, 4.8,
-                             boxstyle="round,pad=0.1",
-                             facecolor='#eaf4fb', edgecolor='#2980b9',
-                             linewidth=2, linestyle='--')
-    ax.add_patch(ps_rect)
-    ax.text(2.45, 5.0, 'Processing System (PS) — ARM Cortex-A53',
-            ha='center', fontsize=9, color='#2980b9', fontstyle='italic')
-
-    # PL (FPGA) region
-    pl_rect = FancyBboxPatch((5.3, 0.3), 5.2, 4.8,
-                             boxstyle="round,pad=0.1",
-                             facecolor='#fef9e7', edgecolor='#e67e22',
-                             linewidth=2, linestyle='--')
-    ax.add_patch(pl_rect)
-    ax.text(7.9, 5.0, 'Programmable Logic (PL) — Zynq UltraScale+ FPGA',
-            ha='center', fontsize=9, color='#e67e22', fontstyle='italic')
+    # Region labels
+    label(3.0, 6.3, 'Processing System (PS)  —  ARM Cortex-A53 @ 1.2 GHz',
+          fs=8.5, color=C['border_ps'], bold=True)
+    label(9.55, 6.3, 'Programmable Logic (PL)  —  Zynq UltraScale+ XCZU7EV',
+          fs=8.5, color=C['border_pl'], bold=True)
 
     # ── PS blocks ────────────────────────────────────────────
-    box(ax, 0.4, 3.4, 2.0, 0.9, 'Input Image',  '96×96 RGB',
-        facecolor='#d5f5e3', edgecolor='#27ae60')
-    box(ax, 0.4, 2.2, 2.0, 0.9, 'Preprocess',   'Resize + Normalize\n+ INT8 Quantize',
-        facecolor='#d6eaf8', edgecolor='#2980b9')
-    box(ax, 0.4, 1.0, 2.0, 0.9, 'Post-process', 'Softmax + Argmax\nThreshold Apply',
-        facecolor='#d6eaf8', edgecolor='#2980b9')
-    box(ax, 2.7, 1.0, 1.8, 0.9, 'Output',       'Defect / Normal',
-        facecolor='#d5f5e3', edgecolor='#27ae60')
+    block(0.6, 4.6, 2.4, 1.0, 'Input Image', '96×96 RGB',
+          fc=C['block_io'], ec=C['border_io'])
+    block(0.6, 3.2, 2.4, 1.0, 'Preprocess',
+          'Resize · Normalize · INT8 Quant',
+          fc=C['block_ps'], ec=C['border_ps'])
+    block(0.6, 1.8, 2.4, 1.0, 'Post-process',
+          'Softmax · Argmax · Threshold',
+          fc=C['block_ps'], ec=C['border_ps'])
+    block(3.3, 1.8, 2.0, 1.0, 'Output',
+          'Defect / Normal',
+          fc=C['block_io'], ec=C['border_io'])
+    block(0.6, 0.55, 4.7, 0.85, 'PYNQ Python Driver  (inference_driver.py)',
+          fc=C['block_drv'], ec=C['border_drv'])
 
-    # Python PYNQ driver
-    box(ax, 0.4, 0.1, 4.1, 0.7, 'PYNQ Python Driver  (inference_driver.py)',
-        facecolor='#f9ebea', edgecolor='#c0392b', fontsize=9)
+    # ── AXI bus column ────────────────────────────────────────
+    rect(5.85, 3.05, 0.6, 1.4, C['axi'], C['axi_border'], lw=1.8)
+    label(6.15, 3.75, 'AXI\nLite', fs=7.5, color='#ffb74d', bold=True)
 
-    # ── AXI bus (middle) ─────────────────────────────────────
-    # AXI-Lite control
-    axi_lite = FancyBboxPatch((4.75, 2.8), 0.55, 1.5,
-                              boxstyle="round,pad=0.05",
-                              facecolor='#f5cba7', edgecolor='#e67e22', linewidth=1.5)
-    ax.add_patch(axi_lite)
-    ax.text(5.025, 3.55, 'AXI\nLite', ha='center', va='center',
-            fontsize=8, fontweight='bold', color='#784212')
-
-    # AXI-Stream data
-    axi_stream = FancyBboxPatch((4.75, 1.1), 0.55, 1.4,
-                                boxstyle="round,pad=0.05",
-                                facecolor='#f5cba7', edgecolor='#e67e22', linewidth=1.5)
-    ax.add_patch(axi_stream)
-    ax.text(5.025, 1.8, 'AXI\nStream', ha='center', va='center',
-            fontsize=8, fontweight='bold', color='#784212')
+    rect(5.85, 1.5, 0.6, 1.3, C['axi'], C['axi_border'], lw=1.8)
+    label(6.15, 2.15, 'AXI\nStream', fs=7.5, color='#ffb74d', bold=True)
 
     # ── PL blocks ─────────────────────────────────────────────
-    box(ax, 5.5, 3.4, 2.0, 0.9, 'Conv3×3 Engine',
-        'INT8 MAC\nLine-buffer pipeline',
-        facecolor='#fdebd0', edgecolor='#e67e22')
-    box(ax, 5.5, 2.2, 2.0, 0.9, 'ReLU Module',
-        'max(0,x)\n1-cycle latency',
-        facecolor='#fdebd0', edgecolor='#e67e22')
-    box(ax, 5.5, 1.0, 2.0, 0.9, 'Weight BRAM',
-        'Dual-port 4KB\nINT8 weights',
-        facecolor='#fdebd0', edgecolor='#e67e22')
+    block(6.8, 4.5, 2.6, 1.1, 'Conv3×3 Engine',
+          'INT8 MAC · Line-buffer pipeline',
+          fc=C['block_pl'], ec=C['border_pl'])
+    block(6.8, 3.1, 2.6, 1.1, 'ReLU Module',
+          'out = max(0, in)  ·  0-cycle latency',
+          fc=C['block_pl'], ec=C['border_pl'])
+    block(6.8, 1.7, 2.6, 1.1, 'Weight BRAM',
+          'Dual-port · INT8 weights',
+          fc=C['block_pl'], ec=C['border_pl'])
+    block(9.8, 1.7, 2.5, 3.9, 'AXI Wrapper',
+          'axi_conv_wrapper.v\n0x00 Control\n0x04 Status\n0x08–0x14 Config',
+          fc='#1e1e3a', ec=C['border_pl'])
 
-    # AXI wrapper
-    box(ax, 7.8, 1.0, 2.5, 3.3, 'AXI Wrapper\n(axi_conv_wrapper.v)',
-        'Ctrl regs 0x00–0x14\nStart / Done / Busy',
-        facecolor='#fef9e7', edgecolor='#e67e22', fontsize=9)
+    # ── Arrows — PS internal ──────────────────────────────────
+    arrowv(1.8, 4.6, 4.2, color=C['arrow_ps'])        # image → preprocess
+    arrowv(1.8, 3.2, 2.8, color=C['arrow_ps'])        # preprocess → postprocess
+    arrowh(3.0, 3.3, 2.3, color=C['arrow_data'])      # postprocess → output
 
-    # ── Arrows ────────────────────────────────────────────────
-    # PS internal flow
-    arrow(ax, 1.4, 3.4, 1.4, 3.1,  color='#2980b9')   # image → preprocess
-    arrow(ax, 1.4, 2.2, 1.4, 1.9,  color='#2980b9')   # preprocess → postprocess
-    arrow(ax, 2.4, 1.45, 2.7, 1.45, color='#27ae60')  # postprocess → output
+    # ── Arrows — PS → AXI ────────────────────────────────────
+    arrowh(3.0, 5.85, 3.6, 'INT8 pixels', color=C['arrow_data'])
+    arrowh(3.0, 5.85, 3.15, 'ctrl (start/reset)', color=C['arrow_ctrl'])
 
-    # PS → AXI
-    arrow(ax, 2.4, 2.65, 4.75, 3.3, 'INT8 image\npixels', color='#e67e22')
-    arrow(ax, 2.4, 3.0, 4.75, 3.0, 'Control\n(start/reset)', color='#c0392b')
+    # ── Arrows — AXI → PL ────────────────────────────────────
+    arrowh(6.45, 6.8, 5.05, color=C['arrow_data'])    # → Conv3×3
+    arrowh(6.45, 6.8, 3.65, color=C['arrow_ctrl'])    # → ReLU
+    arrowh(6.45, 6.8, 2.25, color=C['arrow_data'])    # → BRAM
 
-    # AXI → PL
-    arrow(ax, 5.3, 3.3, 5.5, 3.7,  color='#e67e22')
-    arrow(ax, 5.3, 2.95, 5.5, 2.65, color='#e67e22')
-    arrow(ax, 5.3, 1.5, 5.5, 1.5,  color='#e67e22')
+    # ── Arrows — PL internal ─────────────────────────────────
+    arrowv(8.1, 4.5, 4.2, color=C['arrow_pl'])        # conv → relu
+    arrowv(8.1, 3.1, 2.8, color=C['arrow_pl'])        # relu → bram
 
-    # PL internal
-    arrow(ax, 6.5, 3.4, 6.5, 3.1, color='#e67e22')    # conv → relu
-    arrow(ax, 6.5, 2.2, 6.5, 1.9, color='#e67e22')    # relu → bram area
+    # ── Arrow — results back to PS ───────────────────────────
+    arrowdiag(6.8, 2.25, 5.85, 2.0, 'INT16 accum', color=C['arrow_pl'])
+    arrowh(5.85, 3.0, 2.1, 'result', color=C['arrow_pl'], above=False)
 
-    # AXI ← PL (results back)
-    arrow(ax, 7.8, 2.65, 5.3, 2.0, 'Results', color='#8e44ad')
+    # ── Title ─────────────────────────────────────────────────
+    label(6.5, 6.75,
+          'FPGA-Accelerated Inference System — Xilinx ZCU104',
+          fs=11, bold=True, color='#ffffff')
 
-    # AXI → PS (results)
-    arrow(ax, 4.75, 1.8, 2.4, 1.8, 'INT16\naccumulator', color='#8e44ad')
-
-    plt.tight_layout(pad=0.5)
+    plt.tight_layout(pad=0.3)
     out = os.path.join(FIGURES_DIR, 'architecture.png')
-    plt.savefig(out, dpi=200, bbox_inches='tight')
+    plt.savefig(out, dpi=200, bbox_inches='tight', facecolor=fig.get_facecolor())
     plt.close()
     print(f"   Saved: {out}")
 
