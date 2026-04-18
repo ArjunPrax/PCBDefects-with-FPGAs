@@ -148,32 +148,32 @@ def plot_architecture():
     fig, ax = plt.subplots(figsize=(13, 7))
     ax.set_xlim(0, 13); ax.set_ylim(0, 7)
     ax.axis('off')
-    fig.patch.set_facecolor('#1a1a2e')
-    ax.set_facecolor('#1a1a2e')
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
 
-    # ── Colour palette ────────────────────────────────────────
+    # ── Colour palette — greyscale academic style ─────────────
     C = {
-        'bg':        '#1a1a2e',
-        'ps_fill':   '#16213e',
-        'ps_border': '#0f3460',
-        'pl_fill':   '#0f3460',
-        'pl_border': '#533483',
-        'block_ps':  '#1a4a6b',
-        'block_pl':  '#2d1b69',
-        'block_io':  '#1b4332',
-        'block_drv': '#3d1515',
-        'axi':       '#4a3728',
-        'text':      '#e0e0e0',
-        'subtext':   '#a0a0b0',
-        'arrow_ps':  '#4fc3f7',
-        'arrow_pl':  '#ce93d8',
-        'arrow_ctrl':'#ef9a9a',
-        'arrow_data':'#a5d6a7',
-        'border_ps': '#4fc3f7',
-        'border_pl': '#ce93d8',
-        'border_io': '#66bb6a',
-        'border_drv':'#ef5350',
-        'axi_border':'#ffb74d',
+        'bg':        'white',
+        'ps_fill':   '#f0f0f0',
+        'ps_border': '#333333',
+        'pl_fill':   '#e4e4e4',
+        'pl_border': '#333333',
+        'block_ps':  '#ffffff',
+        'block_pl':  '#ffffff',
+        'block_io':  '#ffffff',
+        'block_drv': '#ffffff',
+        'axi':       '#d0d0d0',
+        'text':      '#111111',
+        'subtext':   '#444444',
+        'arrow_ps':  '#111111',
+        'arrow_pl':  '#111111',
+        'arrow_ctrl':'#111111',
+        'arrow_data':'#111111',
+        'border_ps': '#333333',
+        'border_pl': '#333333',
+        'border_io': '#333333',
+        'border_drv':'#333333',
+        'axi_border':'#333333',
     }
 
     def rect(x, y, w, h, fc, ec, lw=1.5, ls='-', alpha=1.0):
@@ -250,10 +250,10 @@ def plot_architecture():
 
     # ── AXI bus column ────────────────────────────────────────
     rect(5.85, 3.05, 0.6, 1.4, C['axi'], C['axi_border'], lw=1.8)
-    label(6.15, 3.75, 'AXI\nLite', fs=7.5, color='#ffb74d', bold=True)
+    label(6.15, 3.75, 'AXI\nLite', fs=7.5, color=C['text'], bold=True)
 
     rect(5.85, 1.5, 0.6, 1.3, C['axi'], C['axi_border'], lw=1.8)
-    label(6.15, 2.15, 'AXI\nStream', fs=7.5, color='#ffb74d', bold=True)
+    label(6.15, 2.15, 'AXI\nStream', fs=7.5, color=C['text'], bold=True)
 
     # ── PL blocks ─────────────────────────────────────────────
     block(6.8, 4.5, 2.6, 1.1, 'Conv3×3 Engine',
@@ -267,7 +267,7 @@ def plot_architecture():
           fc=C['block_pl'], ec=C['border_pl'])
     block(9.8, 1.7, 2.5, 3.9, 'AXI Wrapper',
           'axi_conv_wrapper.v\n0x00 Control\n0x04 Status\n0x08–0x14 Config',
-          fc='#1e1e3a', ec=C['border_pl'])
+          fc=C['block_pl'], ec=C['border_pl'])
 
     # ── Arrows — PS internal ──────────────────────────────────
     arrowv(1.8, 4.6, 4.2, color=C['arrow_ps'])        # image → preprocess
@@ -298,7 +298,7 @@ def plot_architecture():
 
     plt.tight_layout(pad=0.3)
     out = os.path.join(FIGURES_DIR, 'architecture.png')
-    plt.savefig(out, dpi=200, bbox_inches='tight', facecolor=fig.get_facecolor())
+    plt.savefig(out, dpi=200, bbox_inches='tight', facecolor='white')
     plt.close()
     print(f"   Saved: {out}")
 
