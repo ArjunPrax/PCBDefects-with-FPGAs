@@ -121,7 +121,13 @@ def plot_threshold_sweep():
     recall90 = next((r for r in rows if r['defect_recall'] >= 0.90), None)
     if recall90:
         ax.axvline(x=recall90['threshold'], color='red', linestyle='--', linewidth=1.5,
-                   label=f"90% recall (t={recall90['threshold']:.2f})")
+                   label=f"90%-recall (t={recall90['threshold']:.2f})")
+
+    # Annotate 93% recall threshold (0.05) — near-zero-miss operating point
+    recall93 = next((r for r in rows if r['threshold'] == 0.05), None)
+    if recall93:
+        ax.axvline(x=recall93['threshold'], color='blue', linestyle='--', linewidth=1.5,
+                   label=f"93%-recall (t={recall93['threshold']:.2f})")
 
     ax.set_xlabel('Classification Threshold', fontsize=11)
     ax.set_ylabel('Score', fontsize=11)
