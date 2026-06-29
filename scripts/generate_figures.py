@@ -187,7 +187,7 @@ def plot_architecture():
                      facecolor=fc, edgecolor=ec,
                      linewidth=lw, linestyle=ls, alpha=alpha))
 
-    def label(x, y, txt, fs=9, color=None, bold=False, ha='center', va='center'):
+    def label(x, y, txt, fs=11, color=None, bold=False, ha='center', va='center'):
         ax.text(x, y, txt, ha=ha, va=va, fontsize=fs,
                 color=color or C['text'],
                 fontweight='bold' if bold else 'normal')
@@ -197,10 +197,10 @@ def plot_architecture():
         ec = ec or C['border_ps']
         rect(x, y, w, h, fc, ec, lw=1.8)
         if subtitle:
-            label(x + w/2, y + h/2 + 0.18, title, fs=8.5, bold=True)
-            label(x + w/2, y + h/2 - 0.18, subtitle, fs=7.5, color=C['subtext'])
+            label(x + w/2, y + h/2 + 0.18, title, fs=10.5, bold=True)
+            label(x + w/2, y + h/2 - 0.18, subtitle, fs=9.5, color=C['subtext'])
         else:
-            label(x + w/2, y + h/2, title, fs=8.5, bold=True)
+            label(x + w/2, y + h/2, title, fs=10.5, bold=True)
 
     def arrowh(x1, x2, y, txt='', color=None, above=True):
         color = color or C['arrow_ps']
@@ -209,7 +209,7 @@ def plot_architecture():
                                    mutation_scale=14))
         if txt:
             ty = y + (0.18 if above else -0.18)
-            label((x1+x2)/2, ty, txt, fs=7, color=color)
+            label((x1+x2)/2, ty, txt, fs=9, color=color)
 
     def arrowv(x, y1, y2, txt='', color=None, right=True):
         color = color or C['arrow_ps']
@@ -218,7 +218,7 @@ def plot_architecture():
                                    mutation_scale=14))
         if txt:
             tx = x + (0.22 if right else -0.22)
-            label(tx, (y1+y2)/2, txt, fs=7, color=color, ha='left' if right else 'right')
+            label(tx, (y1+y2)/2, txt, fs=9, color=color, ha='left' if right else 'right')
 
     def arrowdiag(x1, y1, x2, y2, txt='', color=None):
         color = color or C['arrow_ps']
@@ -227,7 +227,7 @@ def plot_architecture():
                                    mutation_scale=14,
                                    connectionstyle='arc3,rad=-0.2'))
         if txt:
-            label((x1+x2)/2 + 0.1, (y1+y2)/2 + 0.2, txt, fs=7, color=color)
+            label((x1+x2)/2 + 0.1, (y1+y2)/2 + 0.2, txt, fs=9, color=color)
 
     # ── Region backgrounds ────────────────────────────────────
     rect(0.3, 0.4, 5.4, 6.1, C['ps_fill'], C['ps_border'], lw=2, ls='--', alpha=0.9)
@@ -235,9 +235,9 @@ def plot_architecture():
 
     # Region labels
     label(3.0, 6.3, 'Processing System (PS)  —  ARM Cortex-A53 @ 1.2 GHz',
-          fs=8.5, color=C['border_ps'], bold=True)
+          fs=10.5, color=C['border_ps'], bold=True)
     label(9.55, 6.3, 'Programmable Logic (PL)  —  Zynq UltraScale+ XCZU7EV',
-          fs=8.5, color=C['border_pl'], bold=True)
+          fs=10.5, color=C['border_pl'], bold=True)
 
     # ── PS blocks ────────────────────────────────────────────
     block(0.6, 4.6, 2.4, 1.0, 'Input Image', '96×96 RGB',
@@ -256,10 +256,10 @@ def plot_architecture():
 
     # ── AXI bus column ────────────────────────────────────────
     rect(5.85, 3.05, 0.6, 1.4, C['axi'], C['axi_border'], lw=1.8)
-    label(6.15, 3.75, 'AXI\nLite', fs=7.5, color=C['text'], bold=True)
+    label(6.15, 3.75, 'AXI\nLite', fs=9.5, color=C['text'], bold=True)
 
     rect(5.85, 1.5, 0.6, 1.3, C['axi'], C['axi_border'], lw=1.8)
-    label(6.15, 2.15, 'AXI\nStream', fs=7.5, color=C['text'], bold=True)
+    label(6.15, 2.15, 'AXI\nStream', fs=9.5, color=C['text'], bold=True)
 
     # ── PL blocks ─────────────────────────────────────────────
     block(6.8, 4.5, 2.6, 1.1, 'Conv3×3 Engine',
@@ -294,13 +294,13 @@ def plot_architecture():
     arrowv(8.1, 3.1, 2.8, color=C['arrow_pl'])        # relu → bram
 
     # ── Arrow — results back to PS ───────────────────────────
-    arrowdiag(6.8, 2.25, 5.85, 2.0, 'INT16 accum', color=C['arrow_pl'])
-    arrowh(5.85, 3.0, 2.1, 'result', color=C['arrow_pl'], above=False)
+    arrowdiag(6.8, 2.25, 5.85, 2.0, color=C['arrow_pl'])
+    arrowh(5.85, 3.0, 2.1, color=C['arrow_pl'], above=False)
 
     # ── Title ─────────────────────────────────────────────────
     label(6.5, 6.75,
           'FPGA-Accelerated Inference System — Xilinx ZCU104',
-          fs=11, bold=True, color='#ffffff')
+          fs=13, bold=True, color='#ffffff')
 
     plt.tight_layout(pad=0.3)
     out = os.path.join(FIGURES_DIR, 'architecture.png')
